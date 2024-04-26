@@ -9,8 +9,6 @@ using namespace std;
 
 #include "common.h"
 
-#define nsteps 10
-
 int main()
 {
 

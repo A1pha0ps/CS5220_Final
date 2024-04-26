@@ -7,6 +7,8 @@
 #define eps0 8.8e-12;
 #define mu0 (4 * pi * 1e-7)
 
+#define nsteps 1000
+
 void init_simulation(double *dx, double *ex, double *hy, double *hz);
 
 void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_step);

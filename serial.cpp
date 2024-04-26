@@ -44,6 +44,10 @@ double eps_eff;
 double pulse = 0.0;
 
 double start_time, end_time;
+double dtime;
+double etime;
+double hytime;
+double hztime;
 
 void init_simulation(double *dx, double *ex, double *hy, double *hz)
 {
@@ -74,6 +78,7 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
 void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_step)
 {
   // calculate D field
+  start_time = omp_get_wtime();
 
   for (int i = 1; i < NUMROWS; i++)
   {
@@ -86,11 +91,15 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
     }
   }
 
+  end_time = omp_get_wtime();
+  dtime += (end_time - start_time);
+
   // Sinusoidal Source
   // 20 GHz
   pulse = sin(2 * pi * 2 * 1e10 * delt * cur_step);
   dx(IC, JC) = pulse;
 
+  start_time = omp_get_wtime();
   // Compute E-field due to permittivity
   for (int i = 0; i < NUMROWS; i++)
   {
@@ -100,7 +109,10 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
       ix(i, j) = ix(i, j) + (sigma * delt) * ex(i, j);
     }
   }
+  end_time = omp_get_wtime();
+  etime += (end_time - start_time);
 
+  start_time = omp_get_wtime();
   // Calculate Hy
   for (int i = 0; i < NUMROWS; i++)
   {
@@ -109,7 +121,10 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
       hy(i, j) = hy(i, j) - deltx * (1 / mu0) * (ex[i, j + 1] - ex[i, j]);
     }
   }
+  end_time = omp_get_wtime();
+  hytime += (end_time - start_time);
 
+  start_time = omp_get_wtime();
   // Calculate Hz
   for (int i = 0; i < NUMROWS; i++)
   {
@@ -117,5 +132,15 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
     {
       hz(i, j) = hz(i, j) + deltx * (1 / mu0) * (ex[i + 1, j] - ex[i, j]);
     }
+  }
+  end_time = omp_get_wtime();
+  hztime += (end_time - start_time);
+
+  if (cur_step == nsteps - 1)
+  {
+    printf("D-field time: %f seconds\n", dtime);
+    printf("E-field time: %f seconds\n", etime);
+    printf("Hy-field time: %f seconds\n", hytime);
+    printf("Hz-field time: %f seconds\n", hztime);
   }
 }
