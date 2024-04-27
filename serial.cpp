@@ -24,8 +24,8 @@ using namespace std;
 #define deltx (delt / delx)
 
 // offset starting point for sinusoidal wave
-#define IC (NUMROWS / 2 - 20)
-#define JC (NUMCOLS / 2 - 20)
+#define IC (NUMROWS / 2)
+#define JC (NUMCOLS / 2)
 
 double *ix;
 
@@ -36,8 +36,8 @@ double *ix;
   Relative Permitivity: 19.3
   Conductivity: 5.21 S/m
 */
-double eps = 19.3 * eps0;
-double sigma = 5.21;
+double eps = 1;
+double sigma = 0;
 
 double eps_eff;
 
@@ -48,6 +48,9 @@ double dtime;
 double etime;
 double hytime;
 double hztime;
+
+double t0 = 40.0;
+int spread = 12;
 
 void init_simulation(double *dx, double *ex, double *hy, double *hz)
 {
@@ -68,7 +71,7 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
     }
   }
 
-  eps_eff = eps + sigma * delt;
+  eps_eff = eps + (sigma * delt) / eps0;
 
   end_time = omp_get_wtime();
 
@@ -77,6 +80,10 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
 
 void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_step)
 {
+
+  // cout << "time step" << cur_step << "\n"
+  //      << endl;
+
   // calculate D field
   start_time = omp_get_wtime();
 
@@ -84,10 +91,9 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
   {
     for (int j = 1; j < NUMCOLS; j++)
     {
-      // cout << i << "," << j << endl;
-      // cout << dx[i * NUMROWS + j] << endl;
-      // cout << hz(i, j) << endl;
-      dx(i, j) = dx(i, j) + deltx * (hz(i, j) - hz(i - 1, j) - hy(i, j) + hy(i, j - 1));
+      int iidx = (i - 1) % NUMROWS;
+      int jidx = (j - 1) % NUMCOLS;
+      dx(i, j) = dx(i, j) + courant * (hz(i, j) - hz(iidx, j) - hy(i, j) + hy(i, jidx));
     }
   }
 
@@ -95,9 +101,10 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
   dtime += (end_time - start_time);
 
   // Sinusoidal Source
-  // 20 GHz
-  pulse = sin(2 * pi * 2 * 1e10 * delt * cur_step);
+  // 1 GHz
+  pulse = exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
   dx(IC, JC) = pulse;
+  // cout << dx(IC, JC) << endl;
 
   start_time = omp_get_wtime();
   // Compute E-field due to permittivity
@@ -105,8 +112,18 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
   {
     for (int j = 0; j < NUMCOLS; j++)
     {
-      ex(i, j) = eps_eff * (dx(i, j) - ix[i, j]);
-      ix(i, j) = ix(i, j) + (sigma * delt) * ex(i, j);
+      ex(i, j) = (1 / eps_eff) * (dx(i, j) - ix(i, j));
+      ix(i, j) = ix(i, j) + ((sigma * delt) / eps0) * ex(i, j);
+      // if (ex(i, j) != 0.0)
+      // {
+      //   cout << 1 / eps_eff << endl;
+      //   cout << dx(i, j) << endl;
+      //   cout << ex(i, j) << endl;
+      //   cout << hy(i, j) << endl;
+      //   cout << hz(i, j) << endl;
+      //   cout << "\n"
+      //        << endl;
+      // }
     }
   }
   end_time = omp_get_wtime();
@@ -116,9 +133,11 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
   // Calculate Hy
   for (int i = 0; i < NUMROWS; i++)
   {
-    for (int j = 0; j < NUMCOLS; j++)
+    for (int j = 0; j < NUMCOLS - 1; j++)
     {
-      hy(i, j) = hy(i, j) - deltx * (1 / mu0) * (ex[i, j + 1] - ex[i, j]);
+      int idx = (j + 1) % NUMCOLS;
+      hy(i, j) = hy(i, j) - courant * (ex(i, idx) - ex(i, j));
+      // cout << hy(i, j) << endl;
     }
   }
   end_time = omp_get_wtime();
@@ -126,11 +145,12 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
 
   start_time = omp_get_wtime();
   // Calculate Hz
-  for (int i = 0; i < NUMROWS; i++)
+  for (int i = 0; i < NUMROWS - 1; i++)
   {
     for (int j = 0; j < NUMCOLS; j++)
     {
-      hz(i, j) = hz(i, j) + deltx * (1 / mu0) * (ex[i + 1, j] - ex[i, j]);
+      int idx = (i + 1) % NUMROWS;
+      hz(i, j) = hz(i, j) + courant * (ex(idx, j) - ex(i, j));
     }
   }
   end_time = omp_get_wtime();

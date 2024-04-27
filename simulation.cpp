@@ -21,11 +21,32 @@ int main()
 
   init_simulation(dx, ex, hy, hz);
 
+  FILE *fp;
+
+  fp = fopen("ex_field.txt", "w");
+
   for (int step = 0; step < nsteps; step++)
   {
     // cout << step << endl;
     simulate_time_step(dx, ex, hy, hz, step);
+
+    /* Write the E field out to a file "Ez" */
+
+    // fprintf(fp, "%d\n", step);
+
+    for (int i = 0; i < NUMROWS; i++)
+    {
+      for (int j = 0; j < NUMCOLS; j++)
+      {
+        fprintf(fp, "%6.3f ", ex[i * NUMROWS + j]);
+      }
+      fprintf(fp, " \n");
+    }
+
+    fprintf(fp, "\n");
   }
+
+  fclose(fp);
 
   return 0;
 }
