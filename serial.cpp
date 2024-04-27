@@ -102,7 +102,7 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
 
   // Sinusoidal Source
   // 1 GHz
-  pulse = exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
+  pulse = 5 * exp(-.1 * (pow((t0 - cur_step) / spread, 2.0)));
   dx(IC, JC) = pulse;
   // cout << dx(IC, JC) << endl;
 
