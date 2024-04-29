@@ -25,7 +25,7 @@ int main()
 
   fp = fopen("ex_field.txt", "w");
 
-  for (int step = 0; step < nsteps; step++)
+  for (int step = 1; step <= nsteps; step++)
   {
     // cout << step << endl;
     simulate_time_step(dx, ex, hy, hz, step);

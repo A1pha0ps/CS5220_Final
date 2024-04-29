@@ -9,7 +9,7 @@
 
 #define courant (sqrt(2) / 2)
 
-#define nsteps 1000
+#define nsteps 500
 
 void init_simulation(double *dx, double *ex, double *hy, double *hz);
 
