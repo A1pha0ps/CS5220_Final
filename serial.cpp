@@ -23,8 +23,8 @@ using namespace std;
 #define relative_eps(i, j) relative_eps[(i) * NUMROWS + j]
 #define sigma(i, j) sigma[(i) * NUMROWS + j]
 #define Idx(i, j) Idx[(i) * NUMROWS + (j)]
-#define sigy(i, j) sigy[(i) * NUMROWS + (j)]
-#define sigz(i, j) sigz[(i) * NUMROWS + (j)]
+#define Ice_y(i, j) Ice_y[(i) * NUMROWS + (j)]
+#define Ice_z(i, j) Ice_z[(i) * NUMROWS + (j)]
 
 #define deltx (delt / delx)
 
@@ -69,13 +69,14 @@ double ex_incident_low0, ex_incident_low1, ex_incident_high0, ex_incident_high1;
 
 // variables for PML
 
-int yLenPML = 10;
-int zLenPML = 10;
+int pmlLen = 10;
 
 double *sigy;
 double *sigz;
 
 double *Idx;
+double *Ice_y;
+double *Ice_z;
 
 // describes properties of grid material
 double *relative_eps, *sigma;
@@ -93,8 +94,21 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
   sigma = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
 
   Idx = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-  sigy = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-  sigz = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
+  Ice_y = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
+  Ice_z = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
+
+  sigy = (double *)malloc(NUMCOLS * sizeof(double));
+  sigz = (double *)malloc(NUMROWS * sizeof(double));
+
+  for (int i = 0; i < NUMROWS; i++)
+  {
+    sigz[i] = 0.0;
+  }
+
+  for (int i = 0; i < NUMCOLS; i++)
+  {
+    sigy[i] = 0.0;
+  }
 
   for (int i = 0; i < NUMROWS; i++)
   {
@@ -106,9 +120,11 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
       hz(i, j) = 0.0;
       ix(i, j) = 0.0;
       Idx(i, j) = 0.0;
+      Ice_y(i, j) = 0.0;
+      Ice_z(i, j) = 0.0;
 
-      sigy(i, j) = (eps0 / (2.0 * delt)) * pow((j / yLenPML), 3);
-      sigz(i, j) = (eps0 / (2.0 * delt)) * pow((i / zLenPML), 3);
+      // sigy(i, j) = (eps0 / (2.0 * delt)) * pow((j / yLenPML), 3);
+      // sigz(i, j) = (eps0 / (2.0 * delt)) * pow((i / zLenPML), 3);
 
       /*
         Code to specify properties of cell
@@ -127,6 +143,15 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
       // printf("%1.2f ", relative_eps(i, j));
     }
     // printf("\n");
+  }
+
+  for (int i = 0; i < pmlLen; i++)
+  {
+    sigy[i] = (eps0 / (2.0 * delt)) * pow((i / pmlLen), 3);
+    sigy[NUMCOLS - i - 1] = (eps0 / (2.0 * delt)) * pow((i / pmlLen), 3);
+
+    sigz[i] = (eps0 / (2.0 * delt)) * pow((i / pmlLen), 3);
+    sigy[NUMROWS - i - 1] = (eps0 / (2.0 * delt)) * pow((i / pmlLen), 3);
   }
 
   for (int i = 0; i < NUMROWS; i++)
@@ -170,7 +195,15 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
     {
       // int iidx = (i - 1);
       // int jidx = (j - 1);
-      dx(i, j) = dx(i, j) + courant * (hz(i, j) - hz(i, j - 1) - hy(i, j) + hy(i - 1, j));
+
+      double curl_h = hz(i, j) - hz(i, j - 1) - hy(i, j) + hy(i - 1, j);
+      double c1 = (2 / delt * (sigy[j] + sigz[i]));
+      double c2 = (sigy[j] * sigz[i] * delt) / pow(eps0, 2);
+      double c3 = c2 * delt;
+
+      Idx(i, j) = Idx(i, j) + dx(i, j);
+
+      dx(i, j) = (1 / (4 + c1 + c3)) * (dx(i, j) * (4 - c1 - c3) + 4 * courant * curl_h - (c2 / 4) * Idx(i, j));
     }
   }
 
@@ -231,8 +264,13 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
   {
     for (int j = 0; j < NUMCOLS - 1; j++)
     {
-      // int idx = (j + 1);
-      hy(i, j) = hy(i, j) - courant * (ex(i + 1, j) - ex(i, j));
+      double curl_e = ex(i + 1, j) - ex(i, j);
+
+      Ice_z(i, j) += curl_e;
+
+      double c1 = (1 - (sigz[i] * delt) / eps0);
+
+      hy(i, j) = hy(i, j) * c1 - (sigy[j] / eps0) * courant * Ice_z(i, j) - courant * curl_e;
       // cout << hy(i, j) << endl;
     }
   }
@@ -253,7 +291,13 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
     for (int j = 0; j < NUMCOLS; j++)
     {
       // int idx = (i + 1);
-      hz(i, j) = hz(i, j) + courant * (ex(i, j + 1) - ex(i, j));
+
+      double curl_e = ex(i, j + 1) - ex(i, j);
+      Ice_y(i, j) = Ice_y(i, j) + curl_e;
+
+      double c1 = (1 - (sigy[j] * delt) / eps0);
+
+      hz(i, j) = courant * curl_e + (sigz[i] / eps0) * courant * Ice_y(i, j) + hz(i, j) * c1;
     }
   }
   end_time = omp_get_wtime();
