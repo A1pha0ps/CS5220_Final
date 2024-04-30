@@ -11,6 +11,7 @@ using namespace std;
 /*
 
   (row i, col j)
+  (y, z)
   arr[i,j] = arr[i * numRows + j]
 
 */
@@ -22,9 +23,12 @@ using namespace std;
 #define ix(i, j) ix[(i) * NUMROWS + (j)]
 #define relative_eps(i, j) relative_eps[(i) * NUMROWS + j]
 #define sigma(i, j) sigma[(i) * NUMROWS + j]
-#define Idx(i, j) Idx[(i) * NUMROWS + (j)]
-#define Ice_y(i, j) Ice_y[(i) * NUMROWS + (j)]
-#define Ice_z(i, j) Ice_z[(i) * NUMROWS + (j)]
+#define MAXLOSS 0.35
+
+#define dxL_abc(i, j, k) dxL_abc[(k) * 6 + (j) * 3 + i]
+#define dxR_abc(i, j, k) dxR_abc[(k) * 6 + (j) * 3 + i]
+#define dxT_abc(i, j, k) dxT_abc[(k) * 6 + (j) * 3 + i]
+#define dxB_abc(i, j, k) dxB_abc[(k) * 6 + (j) * 3 + i]
 
 #define deltx (delt / delx)
 
@@ -57,29 +61,92 @@ double hztime;
 double t0 = 40.0;
 int spread = 12;
 
-int ra = 10;
-int rb = NUMROWS - ra - 1;
-int ca = 10;
-int cb = NUMCOLS - ca - 1;
-
 // variables for TF/SF
+int ra = 10;
+int rb = NUMCOLS - ra - 1;
+int ca = 10;
+int cb = NUMROWS - ca - 1;
+
+int NLOSSY1D = 20;
 double *ex_incident;
-double *hy_incident;
-double ex_incident_low0, ex_incident_low1, ex_incident_high0, ex_incident_high1;
+double *hz_incident;
+double *hz_inc_c1, *hz_inc_c2, *ex_inc_c1, *ex_inc_c2;
 
-// variables for PML
+// second order ABC
 
-int pmlLen = 10;
-
-double *sigy;
-double *sigz;
-
-double *Idx;
-double *Ice_y;
-double *Ice_z;
+double abc_c0, abc_c1, abc_c2;
+double *dxL_abc, *dxR_abc, *dxT_abc, *dxB_abc;
 
 // describes properties of grid material
 double *relative_eps, *sigma;
+
+void init_abc()
+{
+  dxL_abc = (double *)malloc(NUMROWS * 6 * sizeof(double));
+  dxR_abc = (double *)malloc(NUMROWS * 6 * sizeof(double));
+  dxT_abc = (double *)malloc(NUMCOLS * 6 * sizeof(double));
+  dxB_abc = (double *)malloc(NUMCOLS * 6 * sizeof(double));
+
+  for (int i = 0; i < NUMROWS * 6; i++)
+  {
+    dxL_abc[i] = 0;
+    dxR_abc[i] = 0;
+  }
+
+  for (int i = 0; i < NUMCOLS * 6; i++)
+  {
+    dxT_abc[i] = 0;
+    dxB_abc[i] = 0;
+  }
+
+  double t0 = courant;
+  double t1 = 1.0 / t0 + 2.0 + t0;
+  abc_c0 = -(1.0 / t0 - 2.0 + t0) / t1;
+  abc_c1 = -2.0 * (t0 - 1.0 / t0) / t1;
+  abc_c2 = 4.0 * (t0 + 1.0 / t0) / t1;
+}
+
+void init_tfsf()
+{
+  ex_incident = (double *)malloc(NUMCOLS * sizeof(double));
+  hz_incident = (double *)malloc(NUMCOLS * sizeof(double));
+  hz_inc_c1 = (double *)malloc(NUMCOLS * sizeof(double));
+  hz_inc_c2 = (double *)malloc(NUMCOLS * sizeof(double));
+  ex_inc_c1 = (double *)malloc(NUMCOLS * sizeof(double));
+  ex_inc_c2 = (double *)malloc(NUMCOLS * sizeof(double));
+
+  for (int i = 0; i < NUMCOLS; i++)
+  {
+    ex_incident[i] = 0.0;
+    hz_incident[i] = 0.0;
+    hz_inc_c1[i] = 0.0;
+    hz_inc_c2[i] = 0.0;
+    ex_inc_c1[i] = 0.0;
+    ex_inc_c2[i] = 0.0;
+  }
+
+  for (int i = 0; i < NUMCOLS; i++)
+  {
+    if (i < NUMCOLS - NLOSSY1D - 1)
+    {
+      hz_inc_c1[i] = 1.0;
+      hz_inc_c2[i] = courant / imp0;
+      ex_inc_c1[i] = 1.0;
+      ex_inc_c2[i] = courant * imp0;
+    }
+    else
+    {
+      double temp = i - (NUMCOLS - 1 - NLOSSY1D) + 0.5;
+      double lossFactor = MAXLOSS * pow(temp / NLOSSY1D, 2);
+      ex_inc_c1[i] = (1.0 - lossFactor) / (1.0 + lossFactor);
+      ex_inc_c2[i] = courant * imp0 / (1.0 + lossFactor);
+      temp += 0.5;
+      lossFactor = MAXLOSS * pow(temp / NLOSSY1D, 2);
+      hz_inc_c1[i] = (1.0 - lossFactor) / (1.0 + lossFactor);
+      hz_inc_c2[i] = courant / imp0 / (1.0 + lossFactor);
+    }
+  }
+}
 
 void init_simulation(double *dx, double *ex, double *hy, double *hz)
 {
@@ -87,28 +154,13 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
   start_time = omp_get_wtime();
 
   ix = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-  ex_incident = (double *)malloc(NUMROWS * sizeof(double));
-  hy_incident = (double *)malloc(NUMROWS * sizeof(double));
 
   relative_eps = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
   sigma = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
 
-  Idx = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-  Ice_y = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-  Ice_z = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-
-  sigy = (double *)malloc(NUMCOLS * sizeof(double));
-  sigz = (double *)malloc(NUMROWS * sizeof(double));
-
-  for (int i = 0; i < NUMROWS; i++)
-  {
-    sigz[i] = 0.0;
-  }
-
-  for (int i = 0; i < NUMCOLS; i++)
-  {
-    sigy[i] = 0.0;
-  }
+  // Idx = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
+  // Ice_y = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
+  // Ice_z = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
 
   for (int i = 0; i < NUMROWS; i++)
   {
@@ -119,19 +171,13 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
       hy(i, j) = 0.0;
       hz(i, j) = 0.0;
       ix(i, j) = 0.0;
-      Idx(i, j) = 0.0;
-      Ice_y(i, j) = 0.0;
-      Ice_z(i, j) = 0.0;
-
-      // sigy(i, j) = (eps0 / (2.0 * delt)) * pow((j / yLenPML), 3);
-      // sigz(i, j) = (eps0 / (2.0 * delt)) * pow((i / zLenPML), 3);
 
       /*
         Code to specify properties of cell
       */
       if (i > (NUMROWS / 4) && i < (3 * NUMROWS / 4) && j > NUMCOLS / 4 && j < (3 * NUMCOLS / 4))
       {
-        relative_eps(i, j) = 4;
+        relative_eps(i, j) = 1;
         sigma(i, j) = 0.1;
       }
       else
@@ -139,96 +185,57 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
         relative_eps(i, j) = 1;
         sigma(i, j) = 0;
       }
-
-      // printf("%1.2f ", relative_eps(i, j));
     }
-    // printf("\n");
   }
 
-  for (int i = 0; i < pmlLen; i++)
-  {
-    sigy[i] = (eps0 / (2.0 * delt)) * pow((i / pmlLen), 3);
-    sigy[NUMCOLS - i - 1] = (eps0 / (2.0 * delt)) * pow((i / pmlLen), 3);
+  init_tfsf();
 
-    sigz[i] = (eps0 / (2.0 * delt)) * pow((i / pmlLen), 3);
-    sigy[NUMROWS - i - 1] = (eps0 / (2.0 * delt)) * pow((i / pmlLen), 3);
-  }
-
-  for (int i = 0; i < NUMROWS; i++)
-  {
-    ex_incident[i] = 0;
-    hy_incident[i] = 0;
-  }
-
-  // eps_eff = eps + (sigma * delt) / eps0;
+  init_abc();
 
   end_time = omp_get_wtime();
 
   printf("Init Time: %f seconds\n", end_time - start_time);
 }
 
-void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_step)
+void updateHFields(double *dx, double *ex, double *hy, double *hz, int cur_step)
 {
-
-  // cout << "time step" << cur_step << "\n"
-  //      << endl;
-
-  // calculate D field
-  start_time = omp_get_wtime();
-
-  for (int j = 1; j < NUMROWS; j++)
+  // Update H-fields
+  // Calculate Hy
+  for (int i = 0; i < NUMROWS; i++)
   {
-    ex_incident[j] = ex_incident[j] + courant * (hy_incident[j - 1] - hy_incident[j]);
+    for (int j = 0; j < NUMCOLS - 1; j++)
+    {
+      double curl_e = ex(i, j + 1) - ex(i, j);
+      hy(i, j) = hy(i, j) - courant / imp0 * curl_e;
+    }
   }
 
-  ex_incident[0] = ex_incident_low1;
-  ex_incident_low1 = ex_incident_low0;
-  ex_incident_low0 = ex_incident[1];
+  // Calculate Hz
+  for (int i = 0; i < NUMROWS - 1; i++)
+  {
+    for (int j = 0; j < NUMCOLS; j++)
+    {
+      double curl_e = ex(i + 1, j) - ex(i, j);
+      hz(i, j) = hz(i, j) + courant / imp0 * curl_e;
+    }
+  }
+}
 
-  ex_incident[NUMROWS - 1] = ex_incident_high1;
-  ex_incident_high1 = ex_incident_high0;
-  ex_incident_high0 = ex_incident[NUMROWS - 2];
+void updateEFields(double *dx, double *ex, double *hy, double *hz, int cur_step)
+{
+  // calculate D field
 
   for (int i = 1; i < NUMROWS; i++)
   {
     for (int j = 1; j < NUMCOLS; j++)
     {
-      // int iidx = (i - 1);
-      // int jidx = (j - 1);
 
-      double curl_h = hz(i, j) - hz(i, j - 1) - hy(i, j) + hy(i - 1, j);
-      double c1 = (2 / delt * (sigy[j] + sigz[i]));
-      double c2 = (sigy[j] * sigz[i] * delt) / pow(eps0, 2);
-      double c3 = c2 * delt;
+      double curl_h = hz(i, j) - hz(i - 1, j) - hy(i, j) + hy(i, j - 1);
 
-      Idx(i, j) = Idx(i, j) + dx(i, j);
-
-      dx(i, j) = (1 / (4 + c1 + c3)) * (dx(i, j) * (4 - c1 - c3) + 4 * courant * curl_h - (c2 / 4) * Idx(i, j));
+      dx(i, j) = dx(i, j) + (courant * imp0) * curl_h;
     }
   }
 
-  end_time = omp_get_wtime();
-  dtime += (end_time - start_time);
-
-  // Gaussian Pulse
-  pulse = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
-
-  // Sinusoidal Source
-  // 20 GHz
-  // pulse = 10 * sin(2 * pi * 7 * 1e8 * delt * cur_step);
-
-  // dx(IC - 20, JC) += pulse;
-  ex_incident[5] = pulse;
-  // cout << dx(IC, JC) << endl;
-
-  /* Incident Dx values for left and right */
-  for (int i = ca; i <= cb; i++)
-  {
-    dx(ra, i) = dx(ra, i) + courant * hy_incident[ra - 1];
-    dx(rb, i) = dx(rb, i) - courant * hy_incident[rb];
-  }
-
-  start_time = omp_get_wtime();
   // Compute E-field due to permittivity
   for (int i = 0; i < NUMROWS; i++)
   {
@@ -237,84 +244,158 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
       double eps_eff = relative_eps(i, j) + (sigma(i, j) * delt) / eps0;
       ex(i, j) = (1 / eps_eff) * (dx(i, j) - ix(i, j));
       ix(i, j) = ix(i, j) + (sigma(i, j) * delt) / eps0 * ex(i, j);
-      // if (ex(i, j) != 0.0)
-      // {
-      //   cout << 1 / eps_eff << endl;
-      //   cout << dx(i, j) << endl;
-      //   cout << ex(i, j) << endl;
-      //   cout << hy(i, j) << endl;
-      //   cout << hz(i, j) << endl;
-      //   cout << "\n"
-      //        << endl;
-      // }
     }
   }
-  end_time = omp_get_wtime();
-  etime += (end_time - start_time);
+}
 
-  start_time = omp_get_wtime();
+void updateTfSf(double *dx, double *ex, double *hy, double *hz, int cur_step)
+{
 
-  for (int j = 0; j < NUMROWS - 1; j++)
-  {
-    hy_incident[j] = hy_incident[j] + courant * (ex_incident[j] - ex_incident[j + 1]);
-  }
-
-  // Calculate Hy
-  for (int i = 0; i < NUMROWS; i++)
-  {
-    for (int j = 0; j < NUMCOLS - 1; j++)
-    {
-      double curl_e = ex(i + 1, j) - ex(i, j);
-
-      Ice_z(i, j) += curl_e;
-
-      double c1 = (1 - (sigz[i] * delt) / eps0);
-
-      hy(i, j) = hy(i, j) * c1 - (sigy[j] / eps0) * courant * Ice_z(i, j) - courant * curl_e;
-      // cout << hy(i, j) << endl;
-    }
-  }
-  end_time = omp_get_wtime();
-  hytime += (end_time - start_time);
-
-  /* Incident Hy values for top and bottom */
+  // update Hz left and right
   for (int i = ca; i <= cb; i++)
   {
-    hy(ra - 1, i) = hy(ra - 1, i) + courant * ex_incident[ra];
-    hy(rb, i) = hy(rb, i) - courant * ex_incident[rb];
+    hz(ra - 1, i) -= courant / imp0 * ex_incident[ra];
+    hz(rb, i) += courant / imp0 * ex_incident[rb];
   }
 
-  start_time = omp_get_wtime();
-  // Calculate Hz
-  for (int i = 0; i < NUMROWS - 1; i++)
+  // update Hy
+  for (int i = ra; i <= rb; i++)
   {
-    for (int j = 0; j < NUMCOLS; j++)
+    hy(i, ca - 1) += courant / imp0 * ex_incident[i];
+    hy(i, cb) -= courant / imp0 * ex_incident[i];
+  }
+
+  // update hz incident
+  for (int i = 0; i < NUMCOLS - 1; i++)
+  {
+    hz_incident[i] = hz_inc_c1[i] * hz_incident[i] + hz_inc_c2[i] * (ex_incident[i + 1] - ex_incident[i]);
+  }
+
+  // update ex incident
+  for (int i = 1; i < NUMCOLS; i++)
+  {
+    ex_incident[i] = ex_inc_c1[i] * ex_incident[i] + ex_inc_c2[i] * (hz_incident[i] - hz_incident[i - 1]);
+  }
+
+  // set source node
+
+  // Gaussian Pulse
+  // pulse = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
+
+  // Sinusoidal Source
+  // 20 GHz
+  // pulse = 10 * sin(2 * pi * 7 * 1e8 * delt * cur_step);
+
+  // dx(IC - 20, JC) += pulse;
+
+  ex_incident[0] = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
+
+  for (int i = ca; i <= cb; i++)
+  {
+    ex(ra, i) -= courant * imp0 * hz_incident[ra - 1];
+    ex(rb, i) += courant * imp0 * hz_incident[rb];
+  }
+}
+
+void apply_abc(double *dx)
+{
+  for (int i = 0; i < NUMROWS; i++)
+  {
+    // dx(0, i) = abc_c0 * (dx(2, i) + dxL_abc(0, 1, i)) +
+    //            abc_c1 * (dxL_abc(0, 0, i) + dxL_abc(2, 0, i) - dx(1, i) -
+    //                      dxL_abc(1, 1, i)) +
+    //            abc_c2 * dxL_abc(1, 0, i) - dxL_abc(2, 1, i);
+
+    dx(i, 0) = abc_c0 * (dx(i, 2) + dxL_abc(0, 1, i)) +
+               abc_c1 * (dxL_abc(0, 0, i) + dxL_abc(2, 0, i) - dx(i, 1) -
+                         dxL_abc(1, 1, i)) +
+               abc_c2 * dxL_abc(1, 0, i) - dxL_abc(2, 1, i);
+
+    for (int j = 0; j < 3; j++)
     {
-      // int idx = (i + 1);
-
-      double curl_e = ex(i, j + 1) - ex(i, j);
-      Ice_y(i, j) = Ice_y(i, j) + curl_e;
-
-      double c1 = (1 - (sigy[j] * delt) / eps0);
-
-      hz(i, j) = courant * curl_e + (sigz[i] / eps0) * courant * Ice_y(i, j) + hz(i, j) * c1;
+      dxL_abc(j, 1, i) = dxL_abc(j, 0, i);
+      // dxL_abc(j, 0, i) = dx(j, i);
+      dxL_abc(j, 0, i) = dx(i, j);
     }
   }
-  end_time = omp_get_wtime();
-  hztime += (end_time - start_time);
 
-  /* Incident Hz values for left and right */
-  for (int j = ra; j <= rb; j++)
+  for (int i = 0; i < NUMROWS; i++)
   {
-    hz(j, ca - 1) = hz(j, ca - 1) - courant * ex_incident[j];
-    hz(j, cb) = hz(j, cb) + courant * ex_incident[j];
+    // dx(NUMCOLS - 1, i) = abc_c0 * (dx(NUMCOLS - 3, i) + dxR_abc(0, 1, i)) +
+    //                      abc_c1 * (dxR_abc(0, 0, i) + dxR_abc(2, 0, i) - dx(NUMCOLS - 2, i) -
+    //                                dxR_abc(1, 1, i)) +
+    //                      abc_c2 * dxR_abc(1, 0, i) - dxR_abc(2, 1, i);
+    dx(i, NUMCOLS - 1) = abc_c0 * (dx(i, NUMCOLS - 3) + dxR_abc(0, 1, i)) +
+                         abc_c1 * (dxR_abc(0, 0, i) + dxR_abc(2, 0, i) - dx(i, NUMCOLS - 2) -
+                                   dxR_abc(1, 1, i)) +
+                         abc_c2 * dxR_abc(1, 0, i) - dxR_abc(2, 1, i);
+
+    for (int j = 0; j < 3; j++)
+    {
+      dxL_abc(j, 1, i) = dxR_abc(j, 0, i);
+      // dxL_abc(j, 0, i) = dx(NUMCOLS - 1 - j, i);
+      dxL_abc(j, 0, i) = dx(i, NUMCOLS - 1 - j);
+    }
   }
 
-  if (cur_step == nsteps - 1)
+  for (int i = 0; i < NUMCOLS; i++)
   {
-    printf("D-field time: %f seconds\n", dtime);
-    printf("E-field time: %f seconds\n", etime);
-    printf("Hy-field time: %f seconds\n", hytime);
-    printf("Hz-field time: %f seconds\n", hztime);
+    // dx(i, 0) = abc_c0 * (dx(i, 2) + dxB_abc(0, 1, i)) +
+    //            abc_c1 * (dxB_abc(0, 0, i) + dxB_abc(2, 0, i) - dx(i, 1) -
+    //                      dxB_abc(1, 1, i)) +
+    //            abc_c2 * dxB_abc(1, 0, i) - dxB_abc(2, 1, i);
+    dx(0, i) = abc_c0 * (dx(2, i) + dxB_abc(0, 1, i)) +
+               abc_c1 * (dxB_abc(0, 0, i) + dxB_abc(2, 0, i) - dx(1, i) -
+                         dxB_abc(1, 1, i)) +
+               abc_c2 * dxB_abc(1, 0, i) - dxB_abc(2, 1, i);
+    for (int j = 0; j < 3; j++)
+    {
+      dxB_abc(j, 1, i) = dxB_abc(j, 0, i);
+      // dxB_abc(j, 0, i) = dx(i, j);
+      dxB_abc(j, 0, i) = dx(j, i);
+    }
   }
+
+  for (int i = 0; i < NUMCOLS; i++)
+  {
+    // dx(i, NUMROWS - 1) = abc_c0 * (dx(i, NUMROWS - 3) + dxT_abc(0, 1, i)) +
+    //                      abc_c1 * (dxT_abc(0, 0, i) + dxT_abc(2, 0, i) - dx(i, NUMROWS - 2) -
+    //                                dxT_abc(1, 1, i)) +
+    //                      abc_c2 * dxT_abc(1, 0, i) - dxT_abc(2, 1, i);
+    dx(NUMROWS - 1, i) = abc_c0 * (dx(NUMROWS - 3, i) + dxT_abc(0, 1, i)) +
+                         abc_c1 * (dxT_abc(0, 0, i) + dxT_abc(2, 0, i) - dx(NUMROWS - 2, i) -
+                                   dxT_abc(1, 1, i)) +
+                         abc_c2 * dxT_abc(1, 0, i) - dxT_abc(2, 1, i);
+    for (int j = 0; j < 3; j++)
+    {
+      dxT_abc(j, 1, i) = dxT_abc(j, 0, i);
+      // dxT_abc(j, 0, i) = dx(i, NUMROWS - 1 - j);
+      dxT_abc(j, 0, i) = dx(NUMROWS - 1 - j, i);
+    }
+  }
+}
+
+void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_step)
+{
+  updateHFields(dx, ex, hy, hz, cur_step);
+
+  // updateTfSf(dx, ex, hy, hz, cur_step);
+
+  updateEFields(dx, ex, hy, hz, cur_step);
+
+  pulse = 10 * sin(2 * pi * 7 * 1e8 * delt * cur_step);
+
+  dx(NUMROWS / 2 - 20, NUMCOLS / 2) = pulse;
+
+  // apply_abc(ex);
+
+  // ex(NUMROWS / 2 - 30, NUMCOLS / 2) = pulse = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
+
+  // if (cur_step == nsteps - 1)
+  // {
+  //   printf("D-field time: %f seconds\n", dtime);
+  //   printf("E-field time: %f seconds\n", etime);
+  //   printf("Hy-field time: %f seconds\n", hytime);
+  //   printf("Hz-field time: %f seconds\n", hztime);
+  // }
 }

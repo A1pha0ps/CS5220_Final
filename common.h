@@ -1,11 +1,12 @@
-#define NUMROWS 100
-#define NUMCOLS 100
+#define NUMROWS 120
+#define NUMCOLS 120
 #define pi 3.14159265358979323
 
 #define delx 0.01                     // Cell Size
 #define delt (delx / (3e8 * sqrt(2))) // Time Step
 #define eps0 8.8e-12
 #define mu0 (4 * pi * 1e-7)
+#define imp0 377.0
 
 #define courant (sqrt(2) / 2)
 

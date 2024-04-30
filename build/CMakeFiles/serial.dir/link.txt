@@ -1,0 +1,1 @@
+/opt/cray/pe/craype/2.7.30/bin/CC -O3 -DNDEBUG CMakeFiles/serial.dir/simulation.cpp.o CMakeFiles/serial.dir/serial.cpp.o -o serial  /opt/cray/pe/libsci/23.12.5/GNU/12.3/x86_64/lib/libsci_gnu_123_mpi_mp.so /opt/cray/pe/libsci/23.12.5/GNU/12.3/x86_64/lib/libsci_gnu_123_mp.so /usr/lib64/gcc/x86_64-suse-linux/12/libgomp.so 
