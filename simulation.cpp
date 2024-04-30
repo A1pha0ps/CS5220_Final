@@ -38,7 +38,7 @@ int main()
     {
       for (int j = 0; j < NUMCOLS; j++)
       {
-        fprintf(fp, "%6.3f ", hy[i * NUMROWS + j]);
+        fprintf(fp, "%6.3f ", ex[i * NUMROWS + j]);
       }
       fprintf(fp, " \n");
     }

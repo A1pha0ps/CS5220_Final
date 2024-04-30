@@ -175,10 +175,10 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
       /*
         Code to specify properties of cell
       */
-      if (i > (NUMROWS / 4) && i < (3 * NUMROWS / 4) && j > NUMCOLS / 4 && j < (3 * NUMCOLS / 4))
+      if (i > (NUMROWS / 2 - 20) && i < (NUMROWS / 2 + 20) && j > (NUMCOLS / 2 - 20) && j < (NUMCOLS / 2 + 20))
       {
-        relative_eps(i, j) = 1;
-        sigma(i, j) = 0;
+        relative_eps(i, j) = 19.3;
+        sigma(i, j) = 0.04;
       }
       else
       {
@@ -232,20 +232,23 @@ void updateEFields(double *dx, double *ex, double *hy, double *hz, int cur_step)
 
       double curl_h = hz(i, j) - hz(i - 1, j) - hy(i, j) + hy(i, j - 1);
 
-      dx(i, j) = dx(i, j) + courant * imp0 * curl_h;
+      double loss_factor_cond = sigma(i, j) * delt / (2 * relative_eps(i, j));
+
+      ex(i, j) = ((1.0 - loss_factor_cond) / (1.0 + loss_factor_cond)) * ex(i, j) +
+                 courant * imp0 / relative_eps(i, j) / (1.0 + loss_factor_cond) * curl_h;
     }
   }
 
   // Compute E-field due to permittivity
-  for (int i = 0; i < NUMROWS; i++)
-  {
-    for (int j = 0; j < NUMCOLS; j++)
-    {
-      double eps_eff = relative_eps(i, j) + (sigma(i, j) * delt) / eps0;
-      ex(i, j) = (1 / eps_eff) * (dx(i, j) - ix(i, j));
-      ix(i, j) = ix(i, j) + (sigma(i, j) * delt) / eps0 * ex(i, j);
-    }
-  }
+  // for (int i = 0; i < NUMROWS; i++)
+  // {
+  //   for (int j = 0; j < NUMCOLS; j++)
+  //   {
+  //     double eps_eff = relative_eps(i, j) + (sigma(i, j) * delt) / eps0;
+  //     ex(i, j) = (1 / eps_eff) * (dx(i, j) - ix(i, j));
+  //     ix(i, j) = ix(i, j) + (sigma(i, j) * delt) / eps0 * ex(i, j);
+  //   }
+  // }
 }
 
 void updateTfSf(double *dx, double *ex, double *hy, double *hz, int cur_step)
@@ -385,9 +388,9 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
 
   pulse = 10 * sin(2 * pi * 7 * 1e8 * delt * cur_step);
 
-  ex(NUMROWS / 2 - 20, NUMCOLS / 2) = pulse;
+  ex(NUMROWS / 2 - 40, NUMCOLS / 2) = pulse;
 
-  ex(NUMROWS / 2 + 20, NUMCOLS / 2) = pulse;
+  // ex(NUMROWS / 2 + 40, NUMCOLS / 2) = pulse;
 
   apply_abc(ex);
 
