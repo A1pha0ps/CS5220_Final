@@ -1,5 +1,5 @@
-#define NUMROWS 100
-#define NUMCOLS 100
+#define NUMROWS 2000
+#define NUMCOLS 2000
 #define pi 3.14159265358979323
 
 #define delx 0.01                     // Cell Size
@@ -9,7 +9,7 @@
 
 #define courant (sqrt(2) / 2)
 
-#define nsteps 1000
+#define nsteps 500
 
 void init_simulation(double *dx, double *ex, double *hy, double *hz);
 
