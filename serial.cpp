@@ -387,6 +387,8 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
 
   ex(NUMROWS / 2 - 20, NUMCOLS / 2) = pulse;
 
+  ex(NUMROWS / 2 + 20, NUMCOLS / 2) = pulse;
+
   apply_abc(ex);
 
   // ex(NUMROWS / 2 - 30, NUMCOLS / 2) = pulse = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
