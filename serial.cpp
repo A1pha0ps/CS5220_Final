@@ -178,7 +178,7 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
       if (i > (NUMROWS / 4) && i < (3 * NUMROWS / 4) && j > NUMCOLS / 4 && j < (3 * NUMCOLS / 4))
       {
         relative_eps(i, j) = 1;
-        sigma(i, j) = 0.1;
+        sigma(i, j) = 0;
       }
       else
       {
@@ -188,7 +188,7 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
     }
   }
 
-  init_tfsf();
+  // init_tfsf();
 
   init_abc();
 
@@ -232,7 +232,7 @@ void updateEFields(double *dx, double *ex, double *hy, double *hz, int cur_step)
 
       double curl_h = hz(i, j) - hz(i - 1, j) - hy(i, j) + hy(i, j - 1);
 
-      dx(i, j) = dx(i, j) + (courant * imp0) * curl_h;
+      dx(i, j) = dx(i, j) + courant * imp0 * curl_h;
     }
   }
 
@@ -292,8 +292,8 @@ void updateTfSf(double *dx, double *ex, double *hy, double *hz, int cur_step)
 
   for (int i = ca; i <= cb; i++)
   {
-    ex(ra, i) -= courant * imp0 * hz_incident[ra - 1];
-    ex(rb, i) += courant * imp0 * hz_incident[rb];
+    dx(ra, i) -= courant * imp0 * hz_incident[ra - 1];
+    dx(rb, i) += courant * imp0 * hz_incident[rb];
   }
 }
 
@@ -301,76 +301,76 @@ void apply_abc(double *dx)
 {
   for (int i = 0; i < NUMROWS; i++)
   {
-    // dx(0, i) = abc_c0 * (dx(2, i) + dxL_abc(0, 1, i)) +
-    //            abc_c1 * (dxL_abc(0, 0, i) + dxL_abc(2, 0, i) - dx(1, i) -
-    //                      dxL_abc(1, 1, i)) +
-    //            abc_c2 * dxL_abc(1, 0, i) - dxL_abc(2, 1, i);
-
-    dx(i, 0) = abc_c0 * (dx(i, 2) + dxL_abc(0, 1, i)) +
-               abc_c1 * (dxL_abc(0, 0, i) + dxL_abc(2, 0, i) - dx(i, 1) -
+    dx(0, i) = abc_c0 * (dx(2, i) + dxL_abc(0, 1, i)) +
+               abc_c1 * (dxL_abc(0, 0, i) + dxL_abc(2, 0, i) - dx(1, i) -
                          dxL_abc(1, 1, i)) +
                abc_c2 * dxL_abc(1, 0, i) - dxL_abc(2, 1, i);
+
+    // dx(i, 0) = abc_c0 * (dx(i, 2) + dxL_abc(0, 1, i)) +
+    //            abc_c1 * (dxL_abc(0, 0, i) + dxL_abc(2, 0, i) - dx(i, 1) -
+    //                      dxL_abc(1, 1, i)) +
+    //            abc_c2 * dxL_abc(1, 0, i) - dxL_abc(2, 1, i);
 
     for (int j = 0; j < 3; j++)
     {
       dxL_abc(j, 1, i) = dxL_abc(j, 0, i);
-      // dxL_abc(j, 0, i) = dx(j, i);
-      dxL_abc(j, 0, i) = dx(i, j);
+      dxL_abc(j, 0, i) = dx(j, i);
+      // dxL_abc(j, 0, i) = dx(i, j);
     }
   }
 
   for (int i = 0; i < NUMROWS; i++)
   {
-    // dx(NUMCOLS - 1, i) = abc_c0 * (dx(NUMCOLS - 3, i) + dxR_abc(0, 1, i)) +
-    //                      abc_c1 * (dxR_abc(0, 0, i) + dxR_abc(2, 0, i) - dx(NUMCOLS - 2, i) -
-    //                                dxR_abc(1, 1, i)) +
-    //                      abc_c2 * dxR_abc(1, 0, i) - dxR_abc(2, 1, i);
-    dx(i, NUMCOLS - 1) = abc_c0 * (dx(i, NUMCOLS - 3) + dxR_abc(0, 1, i)) +
-                         abc_c1 * (dxR_abc(0, 0, i) + dxR_abc(2, 0, i) - dx(i, NUMCOLS - 2) -
+    dx(NUMCOLS - 1, i) = abc_c0 * (dx(NUMCOLS - 3, i) + dxR_abc(0, 1, i)) +
+                         abc_c1 * (dxR_abc(0, 0, i) + dxR_abc(2, 0, i) - dx(NUMCOLS - 2, i) -
                                    dxR_abc(1, 1, i)) +
                          abc_c2 * dxR_abc(1, 0, i) - dxR_abc(2, 1, i);
+    // dx(i, NUMCOLS - 1) = abc_c0 * (dx(i, NUMCOLS - 3) + dxR_abc(0, 1, i)) +
+    //                      abc_c1 * (dxR_abc(0, 0, i) + dxR_abc(2, 0, i) - dx(i, NUMCOLS - 2) -
+    //                                dxR_abc(1, 1, i)) +
+    //                      abc_c2 * dxR_abc(1, 0, i) - dxR_abc(2, 1, i);
 
     for (int j = 0; j < 3; j++)
     {
-      dxL_abc(j, 1, i) = dxR_abc(j, 0, i);
-      // dxL_abc(j, 0, i) = dx(NUMCOLS - 1 - j, i);
-      dxL_abc(j, 0, i) = dx(i, NUMCOLS - 1 - j);
+      dxR_abc(j, 1, i) = dxR_abc(j, 0, i);
+      dxR_abc(j, 0, i) = dx(NUMCOLS - 1 - j, i);
+      //  dxR_abc(j, 0, i) = dx(i, NUMCOLS - 1 - j);
     }
   }
 
   for (int i = 0; i < NUMCOLS; i++)
   {
-    // dx(i, 0) = abc_c0 * (dx(i, 2) + dxB_abc(0, 1, i)) +
-    //            abc_c1 * (dxB_abc(0, 0, i) + dxB_abc(2, 0, i) - dx(i, 1) -
-    //                      dxB_abc(1, 1, i)) +
-    //            abc_c2 * dxB_abc(1, 0, i) - dxB_abc(2, 1, i);
-    dx(0, i) = abc_c0 * (dx(2, i) + dxB_abc(0, 1, i)) +
-               abc_c1 * (dxB_abc(0, 0, i) + dxB_abc(2, 0, i) - dx(1, i) -
+    dx(i, 0) = abc_c0 * (dx(i, 2) + dxB_abc(0, 1, i)) +
+               abc_c1 * (dxB_abc(0, 0, i) + dxB_abc(2, 0, i) - dx(i, 1) -
                          dxB_abc(1, 1, i)) +
                abc_c2 * dxB_abc(1, 0, i) - dxB_abc(2, 1, i);
+    // dx(0, i) = abc_c0 * (dx(2, i) + dxB_abc(0, 1, i)) +
+    //            abc_c1 * (dxB_abc(0, 0, i) + dxB_abc(2, 0, i) - dx(1, i) -
+    //                      dxB_abc(1, 1, i)) +
+    //            abc_c2 * dxB_abc(1, 0, i) - dxB_abc(2, 1, i);
     for (int j = 0; j < 3; j++)
     {
       dxB_abc(j, 1, i) = dxB_abc(j, 0, i);
-      // dxB_abc(j, 0, i) = dx(i, j);
-      dxB_abc(j, 0, i) = dx(j, i);
+      dxB_abc(j, 0, i) = dx(i, j);
+      // dxB_abc(j, 0, i) = dx(j, i);
     }
   }
 
   for (int i = 0; i < NUMCOLS; i++)
   {
-    // dx(i, NUMROWS - 1) = abc_c0 * (dx(i, NUMROWS - 3) + dxT_abc(0, 1, i)) +
-    //                      abc_c1 * (dxT_abc(0, 0, i) + dxT_abc(2, 0, i) - dx(i, NUMROWS - 2) -
-    //                                dxT_abc(1, 1, i)) +
-    //                      abc_c2 * dxT_abc(1, 0, i) - dxT_abc(2, 1, i);
-    dx(NUMROWS - 1, i) = abc_c0 * (dx(NUMROWS - 3, i) + dxT_abc(0, 1, i)) +
-                         abc_c1 * (dxT_abc(0, 0, i) + dxT_abc(2, 0, i) - dx(NUMROWS - 2, i) -
+    dx(i, NUMROWS - 1) = abc_c0 * (dx(i, NUMROWS - 3) + dxT_abc(0, 1, i)) +
+                         abc_c1 * (dxT_abc(0, 0, i) + dxT_abc(2, 0, i) - dx(i, NUMROWS - 2) -
                                    dxT_abc(1, 1, i)) +
                          abc_c2 * dxT_abc(1, 0, i) - dxT_abc(2, 1, i);
+    // dx(NUMROWS - 1, i) = abc_c0 * (dx(NUMROWS - 3, i) + dxT_abc(0, 1, i)) +
+    //                      abc_c1 * (dxT_abc(0, 0, i) + dxT_abc(2, 0, i) - dx(NUMROWS - 2, i) -
+    //                                dxT_abc(1, 1, i)) +
+    //                      abc_c2 * dxT_abc(1, 0, i) - dxT_abc(2, 1, i);
     for (int j = 0; j < 3; j++)
     {
       dxT_abc(j, 1, i) = dxT_abc(j, 0, i);
-      // dxT_abc(j, 0, i) = dx(i, NUMROWS - 1 - j);
-      dxT_abc(j, 0, i) = dx(NUMROWS - 1 - j, i);
+      dxT_abc(j, 0, i) = dx(i, NUMROWS - 1 - j);
+      // dxT_abc(j, 0, i) = dx(NUMROWS - 1 - j, i);
     }
   }
 }
@@ -385,9 +385,9 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
 
   pulse = 10 * sin(2 * pi * 7 * 1e8 * delt * cur_step);
 
-  dx(NUMROWS / 2 - 20, NUMCOLS / 2) = pulse;
+  ex(NUMROWS / 2 - 20, NUMCOLS / 2) = pulse;
 
-  // apply_abc(ex);
+  apply_abc(ex);
 
   // ex(NUMROWS / 2 - 30, NUMCOLS / 2) = pulse = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
 
