@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-import subprocess
+from matplotlib.patches import Rectangle
 
 # Function to parse the data from the file
 def parse_data(filename):
@@ -31,12 +31,24 @@ N = 500 # number of timesteps
 E_x_t = np.array(data[-N:])
 
 fig, ax = plt.subplots(figsize = (5, 5))
-cax = ax.pcolormesh(np.arange(120), np.arange(120), E_x_t[0].T, 
+cax = ax.pcolormesh(np.arange(300), np.arange(300), E_x_t[0].T, 
                     vmin = np.min(E_x_t), vmax = np.max(E_x_t), 
-                    shading = "auto", cmap = "bwr")
+                    shading = "auto", cmap = "viridis")
 plt.axis("equal")
 plt.colorbar(cax, ax=ax)
 plt.grid(True)
+
+# Define rectangle parameters
+rect_x = 75
+rect_y = 0
+rect_width = 150
+rect_height = 300
+rect_edgecolor = 'black'
+rect_facecolor = 'none'
+
+# Add rectangle patch
+rect = Rectangle((rect_x, rect_y), rect_width, rect_height, linewidth=2, edgecolor=rect_edgecolor, facecolor=rect_facecolor)
+ax.add_patch(rect)
 
 def animate(i):
     cax.set_array(E_x_t[i].T.flatten())
