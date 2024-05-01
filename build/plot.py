@@ -24,7 +24,7 @@ def parse_data(filename):
 # Parse the data from the file
 data = parse_data("e_field_before.txt")
 
-N = 500 # number of timesteps
+N = 200 # number of timesteps
 
 # animate self.E_x_t as a .gif file.
 # N: number of total steps to save as .gif animation.
