@@ -1,5 +1,5 @@
-#define NUMROWS 200
-#define NUMCOLS 200
+#define NUMROWS 64
+#define NUMCOLS 64
 #define pi 3.14159265358979323
 
 #define delx 0.01                           // Cell Size

@@ -9,7 +9,7 @@
 using namespace std;
 
 #include "common.h"
-#define NUM_SOURCE  100
+#define NUM_SOURCE  NUMCOLS/2
 #define NUM_TARGET  (NUMROWS/4)*(NUMCOLS/8)
 #define NUM_DESIGN  (NUMROWS)*(NUMCOLS/4)
 #define MIN_DEN 0.001
@@ -166,15 +166,14 @@ double simulate(){
 void update_density(){
 	double sum = 0.0;
 	for(int d = 0; d < NUM_DESIGN; ++d){
-		cout << "Doing " << d << endl;
+		cout << "Doing " << d  << "/" << NUM_DESIGN<< endl;
 		double old_val = design_density[d];
 		//we need to estimate the gradient of the damage - central difference with each design variable
 		set_d_mat(d, old_val - grad_w);
 		double back = simulate();	
 		set_d_mat(d, old_val + grad_w);
 		double front = simulate();
-		design_grad[d] = (front - back)/(2*grad_w);
-		cout << design_grad[d] << endl;
+		design_grad[d] = (front - back)/(2*grad_w);	
 		sum += design_grad[d];
 		set_d_mat(d, old_val);
 	}
@@ -193,6 +192,7 @@ void update_density(){
 		}
 	}
 	update_d_mat();
+	
 }
 
 void simulate_with_output(){
@@ -240,14 +240,6 @@ void simulate_with_output(){
 }
 void do_top_op(){
 	design_grad = (double *)malloc(NUM_DESIGN *sizeof(double));
-
-
-
-
-
-
-
-
 	//set up a dummy problem: 1 source, boxlike design space and target
 
 	
@@ -306,8 +298,24 @@ void do_top_op(){
 	design_y = ddy.data();
 	design_density = ddden.data();
 	init_mat_properties();
-	//update_density();
-	simulate_with_output();
+
+	FILE * fp;
+	fp = fopen("conductance.txt","w");
+	for(int i = 0; i <5; ++i){
+		update_density();
+
+
+		for(int i = 0; i < NUMROWS; ++i){
+			for(int j = 0; j < NUMCOLS; ++j){
+				fprintf(fp, "%6.3f ", sigma(j, i));
+			}
+			fprintf(fp, "\n");
+		}
+		fprintf(fp, "\n");
+
+	}
+	fclose(fp);
+	//simulate_with_output();
 	free(design_grad);
 
 
