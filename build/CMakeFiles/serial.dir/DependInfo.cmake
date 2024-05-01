@@ -8,8 +8,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/global/homes/a/a1pha0ps/CS5220_Final/serial.cpp" "CMakeFiles/serial.dir/serial.cpp.o" "gcc" "CMakeFiles/serial.dir/serial.cpp.o.d"
-  "/global/homes/a/a1pha0ps/CS5220_Final/simulation.cpp" "CMakeFiles/serial.dir/simulation.cpp.o" "gcc" "CMakeFiles/serial.dir/simulation.cpp.o.d"
+  "/global/homes/k/kbh64/CS5220/proj/CS5220_Final/serial.cpp" "CMakeFiles/serial.dir/serial.cpp.o" "gcc" "CMakeFiles/serial.dir/serial.cpp.o.d"
+  "/global/homes/k/kbh64/CS5220/proj/CS5220_Final/simulation.cpp" "CMakeFiles/serial.dir/simulation.cpp.o" "gcc" "CMakeFiles/serial.dir/simulation.cpp.o.d"
   )
 
 # Targets to which this target links.

@@ -50,9 +50,9 @@ void init_mat_properties(double *relative_eps, double *sigma)
     for (int j = 0; j < NUMCOLS; j++)
     {
 
-      bool cond1 = (i >= 100 && i <= 105 && j <= 50);
-      bool cond2 = (i >= 100 && i <= 105 && j >= 75 && j <= 125);
-      bool cond3 = (i >= 100 && i <= 105 && j >= 150);
+      bool cond1 = (i >= 100 && i <= 102 && j <= 80);
+      bool cond2 = (i >= 100 && i <= 102 && j >= 90 && j <= 110);
+      bool cond3 = (i >= 100 && i <= 102 && j >= 120);
 
       if (cond1 || cond2 || cond3)
       {

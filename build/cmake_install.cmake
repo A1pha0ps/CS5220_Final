@@ -1,4 +1,4 @@
-# Install script for directory: /global/homes/a/a1pha0ps/CS5220_Final
+# Install script for directory: /global/homes/k/kbh64/CS5220/proj/CS5220_Final
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/global/homes/a/a1pha0ps/CS5220_Final/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/global/homes/k/kbh64/CS5220/proj/CS5220_Final/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
