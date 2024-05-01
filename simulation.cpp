@@ -183,7 +183,7 @@ void update_density(){
 
 	//take a step backward
 	for(int d = 0; d < NUM_DESIGN; ++d){
-		design_density[d] -= design_grad[d];
+		design_density[d] -= design_grad[d]/sum;
 		if(design_density[d] < MIN_DEN){
 			design_density[d] = MIN_DEN;
 		}
@@ -307,7 +307,13 @@ void do_top_op(){
 
 		for(int i = 0; i < NUMROWS; ++i){
 			for(int j = 0; j < NUMCOLS; ++j){
-				fprintf(fp, "%6.3f ", sigma(j, i));
+				if(j < 3*NUMCOLS/4 && j >= NUMCOLS/2){
+					fprintf(fp, "%6.3f ", sigma(i, j)/d_cond);
+				}
+				else{
+					fprintf(fp, "%6.3f ", 0.0);
+				}
+
 			}
 			fprintf(fp, "\n");
 		}
