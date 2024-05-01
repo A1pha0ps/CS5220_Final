@@ -10,7 +10,7 @@
 
 #define courant (sqrt(2) / 2)
 #define abs(x) x < 0 ? -x : x
-#define nsteps 500
+#define nsteps 200
 
 #define dx(i, j) dx[(i) * NUMROWS + (j)]
 #define ex(i, j) ex[(i) * NUMROWS + (j)]

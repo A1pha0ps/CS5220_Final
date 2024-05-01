@@ -10,8 +10,8 @@ using namespace std;
 
 #include "common.h"
 #define NUM_SOURCE  NUMCOLS/2
-#define NUM_TARGET  (NUMROWS/4)*(NUMCOLS/8)
-#define NUM_DESIGN  (NUMROWS)*(NUMCOLS/4)
+#define NUM_TARGET  (NUMROWS/8)*(NUMCOLS/8)
+#define NUM_DESIGN  (NUMROWS*3/4)*(NUMCOLS/4)
 #define MIN_DEN 0.001
 #define grad_w 0.0005
 #define OP_ITERS 20
@@ -38,7 +38,7 @@ double * source_freq;
 double t_perm = 19.3;
 double t_cond = 5.21;
 //Copper for Shield
-double d_perm = 1;
+double d_perm = 1.0;
 double d_cond = 5.8e7;
 
 
@@ -247,7 +247,7 @@ void do_top_op(){
 	vector<double> freq;
 
 	for(int i = -NUMCOLS/4; i < NUMCOLS/4; ++i){
-		sx.push_back(NUMCOLS*3/8);
+		sx.push_back(NUMCOLS*1/8);
 		sy.push_back(NUMROWS/2 + i);
 		samp.push_back(320000);
 		off.push_back(0);
@@ -266,21 +266,23 @@ void do_top_op(){
 	vector<int> ddx;
 	vector<int> ddy;
 	vector<double> ddden;
-	int count = 0;	
-	for(int i = 0; i < NUMROWS; ++i){
-		for(int j = NUMCOLS/2; j < NUMCOLS; ++j){
-			if(j >= NUMCOLS * 3/4 && j < NUMCOLS*7/8 && i >= 3*NUMROWS/8 && i < 5*NUMROWS/8){
 
-				tx.push_back(j);
-				ty.push_back(i);	
+	for(int i = NUMROWS/2; i < 5*NUMROWS/8; ++i){
+		for(int j = NUMCOLS*3/4; j < 7*NUMCOLS/8; ++j){
+			tx.push_back(j);
+			ty.push_back(i);	
 
-			}
-			if(j < 3*NUMCOLS/4){	
-				++count;
-				ddx.push_back(j);
-				ddy.push_back(i);
-				ddden.push_back(0.1);
-			}
+
+	
+
+						}
+	}
+
+	for (int i = NUMROWS/8; i < NUMROWS*7/8; ++i){
+		for(int j = 3*NUMCOLS/8; j < 5*NUMCOLS/8; ++j){
+			ddx.push_back(j);
+			ddy.push_back(i);
+			ddden.push_back(0.1);
 		}
 	}
 
@@ -288,7 +290,7 @@ void do_top_op(){
 	//		update_density();
 	//	}
 
-	cout << count << endl;
+
 	target_x = tx.data();
 	target_y = ty.data();
 
@@ -307,7 +309,7 @@ void do_top_op(){
 	fprintf(F_DAMAGE, "%6.3f\n", simulate());
 	FILE * fp;
 	fp = fopen("conductance.txt","w");
-	for(int i = 0; i <15; ++i){
+	for(int i = 0; i <30; ++i){
 		update_density();
 		fprintf(F_DAMAGE, "%6.3f\n", simulate());
 
