@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <cstring>
 #include <omp.h>
-
+#include <random>
 #include <iostream>
 using namespace std;
 
@@ -303,6 +303,28 @@ void do_top_op(){
 	design_y = ddy.data();
 	design_density = ddden.data();
 	init_mat_properties();
+	FILE * DATA;
+	DATA = fopen("ML_DATA.txt", "w");
+	random_device rd;
+	mt19937 gen(rd());
+	uniform_real_distribution<double> dis(0.1, 1.0);
+
+	for(int i = 0; i < 5000; ++i){
+		cout << i << endl;
+		//populate design density with random stuff
+		for(int d = 0; d < NUM_DESIGN; ++d){
+			design_density[d] = dis(gen);
+			fprintf(DATA, "%6.3f ", design_density[d]);
+		}
+		fprintf(DATA, "\n");
+	 	update_d_mat();
+		fprintf(DATA, "%6.3f\n", simulate());	
+		
+	}
+	fclose(DATA);
+
+
+
 	FILE * F_DAMAGE;
 	F_DAMAGE = fopen("damage_plot","w");
 	FILE * FPB;
