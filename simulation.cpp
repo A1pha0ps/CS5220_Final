@@ -71,8 +71,8 @@ void init_mat_properties(double *relative_eps, double *sigma)
 
       if (cond1 || cond2 || cond3)
       {
-        relative_eps(i, j) = 1;
-        sigma(i, j) = 5.8e7;
+        relative_eps(i, j) = 2.5;
+        sigma(i, j) = 8e6;
       }
       else
       {
