@@ -311,9 +311,9 @@ void do_top_op(){
 		update_density();
 		fprintf(F_DAMAGE, "%6.3f\n", simulate());
 
-		for(int i = 0; i < NUMROWS; ++i){
-			for(int j = 0; j < NUMCOLS; ++j){
-				if(j < 3*NUMCOLS/4 && j >= NUMCOLS/2){
+		for(int i = 0; i < NUMCOLS; ++i){
+			for(int j = 0; j < NUMROWS; ++j){
+				if(i < 3*NUMCOLS/4 && i >= NUMCOLS/2){
 					fprintf(fp, "%6.3f ", sigma[i*NUMROWS + j]/d_cond);
 				}
 				else{
