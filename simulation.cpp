@@ -10,7 +10,7 @@ using namespace std;
 
 #include "common.h"
 #define NUM_SOURCE  NUMCOLS/2
-#define NUM_TARGET  (NUMROWS/8)*(NUMCOLS/8)
+#define NUM_TARGET  (NUMROWS/8)*(NUMCOLS/8) * 2
 #define NUM_DESIGN  (NUMROWS*3/4)*(NUMCOLS/4)
 #define MIN_DEN 0.001
 #define grad_w 0.0005
@@ -266,16 +266,21 @@ void do_top_op(){
 	vector<int> ddx;
 	vector<int> ddy;
 	vector<double> ddden;
-
-	for(int i = NUMROWS/2; i < 5*NUMROWS/8; ++i){
+	for(int i = NUMROWS/8; i < NUMROWS/4; ++i){
 		for(int j = NUMCOLS*3/4; j < 7*NUMCOLS/8; ++j){
 			tx.push_back(j);
 			ty.push_back(i);	
 
+		}
+	}
 
-	
 
-						}
+	for(int i = 3*NUMROWS/4; i < 7*NUMROWS/8; ++i){
+		for(int j = NUMCOLS*3/4; j < 7*NUMCOLS/8; ++j){
+			tx.push_back(j);
+			ty.push_back(i);	
+
+		}
 	}
 
 	for (int i = NUMROWS/8; i < NUMROWS*7/8; ++i){
