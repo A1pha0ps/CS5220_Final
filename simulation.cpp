@@ -315,8 +315,7 @@ void do_top_op(){
 		for(int d = 0; d < NUM_DESIGN; ++d){
 			design_density[d] = dis(gen);
 			fprintf(DATA, "%6.3f ", design_density[d]);
-		}
-		fprintf(DATA, "\n");
+		}	
 	 	update_d_mat();
 		fprintf(DATA, "%6.3f\n", simulate());	
 		
