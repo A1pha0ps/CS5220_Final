@@ -183,7 +183,7 @@ void update_density(){
 
 	//take a step backward
 	for(int d = 0; d < NUM_DESIGN; ++d){
-		design_density[d] -= design_grad[d]/sum;
+		design_density[d] += design_grad[d]/sum;
 		if(design_density[d] < MIN_DEN){
 			design_density[d] = MIN_DEN;
 		}
@@ -265,7 +265,8 @@ void do_top_op(){
 	vector<int> ty;
 	vector<int> ddx;
 	vector<int> ddy;
-	vector<double> ddden;	
+	vector<double> ddden;
+	int count = 0;	
 	for(int i = 0; i < NUMROWS; ++i){
 		for(int j = NUMCOLS/2; j < NUMCOLS; ++j){
 			if(j >= NUMCOLS * 3/4 && j < NUMCOLS*7/8 && i >= 3*NUMROWS/8 && i < 5*NUMROWS/8){
@@ -275,6 +276,7 @@ void do_top_op(){
 
 			}
 			if(j < 3*NUMCOLS/4){	
+				++count;
 				ddx.push_back(j);
 				ddy.push_back(i);
 				ddden.push_back(0.1);
@@ -286,7 +288,7 @@ void do_top_op(){
 	//		update_density();
 	//	}
 
-
+	cout << count << endl;
 	target_x = tx.data();
 	target_y = ty.data();
 
@@ -294,18 +296,20 @@ void do_top_op(){
 	design_y = ddy.data();
 	design_density = ddden.data();
 	init_mat_properties();
-
+	FILE * F_DAMAGE;
+	F_DAMAGE = fopen("damage_plot","w");
 	FILE * FPB;
 	FPB = fopen("e_field_before.txt", "w");
 	FILE * FPA;
 	FPA = fopen("e_field_after.txt","w");
+	update_d_mat();
 	simulate_with_output(FPB);
-
+	fprintf(F_DAMAGE, "%6.3f\n", simulate());
 	FILE * fp;
 	fp = fopen("conductance.txt","w");
 	for(int i = 0; i <15; ++i){
 		update_density();
-
+		fprintf(F_DAMAGE, "%6.3f\n", simulate());
 
 		for(int i = 0; i < NUMROWS; ++i){
 			for(int j = 0; j < NUMCOLS; ++j){
@@ -323,6 +327,7 @@ void do_top_op(){
 
 	}
 	fclose(fp);
+	fclose(F_DAMAGE);
 	simulate_with_output(FPA);
 	free(design_grad);
 
