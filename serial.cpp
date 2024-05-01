@@ -291,13 +291,16 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
   pulse = 2000 * sin(2 * pi *7* 1e8 * delx / 3e8 * cur_step);
 
   // pulse = 5 * exp(-.2 * (pow((t0 - cur_step) / spread, 2.0)));
+  for(int i = -50; i <= 50; ++i){
 
-  ex(10, NUMCOLS / 2 - 1) = pulse;
-  ex(10, NUMCOLS / 2) = pulse;
-  ex(10, NUMCOLS / 2 + 1) = pulse;
+	ex(10, NUMCOLS / 2 + i) = pulse;
+  }
+  
+ 
 
-  ex(10, NUMCOLS / 2 - 2) = pulse;
-  ex(10, NUMCOLS / 2 + 2) = pulse;
+
+
+
 
 
 
