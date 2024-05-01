@@ -11,6 +11,21 @@ using namespace std;
 
 double abc_c0, abc_c1, abc_c2;
 
+//define design and target space
+
+int * target_x;
+int * target_y;
+
+int * design_x;
+int * design_y;
+//Silicon for Device
+double t_perm = 19.3;
+double t_cond = 5.21;
+//Copper for Shield
+double d_perm = 1;
+double d_cond = 5.8e7;
+
+
 void init_abc(double *dxL_abc, double *dxR_abc, double *dxT_abc, double *dxB_abc)
 {
   for (int i = 0; i < NUMROWS * 6; i++)
@@ -50,14 +65,14 @@ void init_mat_properties(double *relative_eps, double *sigma)
     for (int j = 0; j < NUMCOLS; j++)
     {
 
-      bool cond1 = (i >= 100 && i <= 102 && j <= 80);
+      bool cond1 = (i >= 100 && i <= 102 && j <= 60);
       bool cond2 = (i >= 100 && i <= 102 && j >= 90 && j <= 110);
-      bool cond3 = (i >= 100 && i <= 102 && j >= 120);
+      bool cond3 = (i >= 100 && i <= 102 && j >= 140);
 
       if (cond1 || cond2 || cond3)
       {
-        relative_eps(i, j) = 16.5;
-        sigma(i, j) = 4.1e7;
+        relative_eps(i, j) = 1;
+        sigma(i, j) = 5.8e7;
       }
       else
       {
@@ -85,6 +100,7 @@ void free_all(double *dx, double *ex, double *hy, double *hz, double *dxL_abc,
   free(relative_eps);
   free(sigma);
 }
+
 
 int main()
 {
