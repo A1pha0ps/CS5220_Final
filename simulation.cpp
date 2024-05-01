@@ -274,7 +274,7 @@ void do_top_op(){
 				ty.push_back(i);	
 
 			}
-			else if(j < 3*NUMCOLS/4){	
+			if(j < 3*NUMCOLS/4){	
 				ddx.push_back(j);
 				ddy.push_back(i);
 				ddden.push_back(0.1);
@@ -303,7 +303,7 @@ void do_top_op(){
 
 	FILE * fp;
 	fp = fopen("conductance.txt","w");
-	for(int i = 0; i <5; ++i){
+	for(int i = 0; i <15; ++i){
 		update_density();
 
 
