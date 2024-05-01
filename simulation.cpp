@@ -310,7 +310,7 @@ void do_top_op(){
 		for(int i = 0; i < NUMROWS; ++i){
 			for(int j = 0; j < NUMCOLS; ++j){
 				if(j < 3*NUMCOLS/4 && j >= NUMCOLS/2){
-					fprintf(fp, "%6.3f ", sigma(i, j)/d_cond);
+					fprintf(fp, "%6.3f ", sigma(j, i)/d_cond);
 				}
 				else{
 					fprintf(fp, "%6.3f ", 0.0);
