@@ -195,15 +195,11 @@ void update_density(){
 	
 }
 
-void simulate_with_output(){
+void simulate_with_output(FILE * fp){
 	init_mat_properties();
 	init_simulation(dx, ex, hy, hz);
 	init_abc();	
 
-
-	FILE *fp;
-
-	fp = fopen("ex_field.txt", "w");
 
 	for (int step = 0; step < nsteps; step++)
 	{
@@ -299,6 +295,12 @@ void do_top_op(){
 	design_density = ddden.data();
 	init_mat_properties();
 
+	FILE * FPB;
+	FPB = fopen("e_field_before.txt", "w");
+	FILE * FPA;
+	FPA = fopen("e_field_after.txt","w");
+	simulate_with_output(FPB);
+
 	FILE * fp;
 	fp = fopen("conductance.txt","w");
 	for(int i = 0; i <5; ++i){
@@ -321,7 +323,7 @@ void do_top_op(){
 
 	}
 	fclose(fp);
-	//simulate_with_output();
+	simulate_with_output(FPA);
 	free(design_grad);
 
 

@@ -22,7 +22,7 @@ def parse_data(filename):
 # subprocess.run("./serial", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
 
 # Parse the data from the file
-data = parse_data("ex_field.txt")
+data = parse_data("e_field_before.txt")
 
 N = 500 # number of timesteps
 
@@ -31,7 +31,7 @@ N = 500 # number of timesteps
 E_x_t = np.array(data[-N:])
 
 fig, ax = plt.subplots(figsize = (5, 5))
-cax = ax.pcolormesh(np.arange(200), np.arange(200), E_x_t[0].T, 
+cax = ax.pcolormesh(np.arange(64), np.arange(64), E_x_t[0].T, 
                     vmin = np.min(E_x_t), vmax = np.max(E_x_t), 
                     shading = "auto", cmap = "bwr")
 plt.axis("equal")
@@ -54,5 +54,5 @@ def animate(i):
     cax.set_array(E_x_t[i].T.flatten())
 
 anim = FuncAnimation(fig, animate, interval = 50, frames = len(E_x_t) - 1)
-anim.save("fdtd_2d_E_animation.gif", writer = "pillow")
+anim.save("E_before.gif", writer = "pillow")
 # plt.show()
