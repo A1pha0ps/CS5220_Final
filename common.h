@@ -9,7 +9,7 @@
 #define imp0 377.0
 
 #define courant (sqrt(2) / 2)
-
+#define abs(x) x < 0 ? -x : x
 #define nsteps 500
 
 #define dx(i, j) dx[(i) * NUMROWS + (j)]
@@ -33,8 +33,7 @@
 #define JC (NUMCOLS / 2)
 
 void init_simulation(double *dx, double *ex, double *hy, double *hz);
-
+void apply_source(double * ex, int NUM_SOURCE, int step, int * s_x, int * s_y, double *s_amp, double * s_off, double * s_freq);
+void apply_abc(double * ex, double abc_c0, double abc_c1, double abc_c2, double * dxL, double * dxR, double * dxT, double * dxB);
 void simulate_time_step(double *dx, double *ex, double *hy, double *hz,
-                        int cur_step, double *relative_eps, double *sigma,
-                        double abc_c0, double abc_c1, double abc_c2,
-                        double *dxL_abc, double *dxR_abc, double *dxT_abc, double *dxB_abc);
+                        int cur_step, double *relative_eps, double *sigma);

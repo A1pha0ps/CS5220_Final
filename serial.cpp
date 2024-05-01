@@ -104,7 +104,7 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
 
   end_time = omp_get_wtime();
 
-  printf("Init Time: %f seconds\n", end_time - start_time);
+  //printf("Init Time: %f seconds\n", end_time - start_time);
 }
 
 void updateHFields(double *dx, double *ex, double *hy, double *hz, int cur_step)
@@ -273,9 +273,14 @@ void apply_abc(double *ex, double abc_c0, double abc_c1, double abc_c2,
   }
 }
 
+void apply_source(double * ex,int s_count, int step_num, int * x_loc, int * y_loc, double * amp, double * offset, double * freq){
+	for(int i = 0; i < s_count; ++i){
+		ex(x_loc[i], y_loc[i]) = amp[i] * sin(2*pi*freq[i]*1e8*delx/3e8 * (step_num - offset[i]));
+	}
+
+}
 void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_step,
-                        double *relative_eps, double *sigma, double abc_c0, double abc_c1, double abc_c2,
-                        double *dxL_abc, double *dxR_abc, double *dxT_abc, double *dxB_abc)
+                        double *relative_eps, double *sigma)
 {
   updateHFields(dx, ex, hy, hz, cur_step);
 
@@ -288,13 +293,13 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
 
   // Sinusoidal Source
   // 20 GHz
-  pulse = 4000 * sin(2 * pi *7* 1e8 * delx / 3e8 * cur_step);
+  //pulse = 4000 * sin(2 * pi *7* 1e8 * delx / 3e8 * cur_step);
 
   // pulse = 5 * exp(-.2 * (pow((t0 - cur_step) / spread, 2.0)));
-  for(int i = -100; i <= 100; ++i){
+  //for(int i = -100; i <= 100; ++i){
 
-	ex(10, NUMCOLS / 2 + i) = pulse;
-  }
+  //	ex(10, NUMCOLS / 2 + i) = pulse;
+  //}
   
  
 
@@ -306,7 +311,7 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
 
   // ex(NUMROWS / 2 + 40, NUMCOLS / 2) = pulse;
 
-  apply_abc(ex, abc_c0, abc_c1, abc_c2, dxL_abc, dxR_abc, dxT_abc, dxB_abc);
+  //apply_abc(ex, abc_c0, abc_c1, abc_c2, dxL_abc, dxR_abc, dxT_abc, dxB_abc);
 
   // ex(NUMROWS / 2 - 30, NUMCOLS / 2) = pulse = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
 
