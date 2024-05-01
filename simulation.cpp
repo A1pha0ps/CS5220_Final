@@ -196,7 +196,7 @@ void update_density(){
 }
 
 void simulate_with_output(FILE * fp){
-	init_mat_properties();
+
 	init_simulation(dx, ex, hy, hz);
 	init_abc();	
 
@@ -310,7 +310,7 @@ void do_top_op(){
 		for(int i = 0; i < NUMROWS; ++i){
 			for(int j = 0; j < NUMCOLS; ++j){
 				if(j < 3*NUMCOLS/4 && j >= NUMCOLS/2){
-					fprintf(fp, "%6.3f ", sigma(j, i)/d_cond);
+					fprintf(fp, "%6.3f ", sigma[i*NUMROWS + j]/d_cond);
 				}
 				else{
 					fprintf(fp, "%6.3f ", 0.0);
