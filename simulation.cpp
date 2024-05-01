@@ -9,7 +9,7 @@
 using namespace std;
 
 #include "common.h"
-#define NUM_SOURCE  1
+#define NUM_SOURCE  100
 #define NUM_TARGET  (NUMROWS/4)*(NUMCOLS/8)
 #define NUM_DESIGN  (NUMROWS)*(NUMCOLS/4)
 #define MIN_DEN 0.001
@@ -242,18 +242,35 @@ void do_top_op(){
 	design_grad = (double *)malloc(NUM_DESIGN *sizeof(double));
 
 
-	source_x = (int *)malloc(NUM_SOURCE *sizeof(int));
-	source_y = (int *)malloc(NUM_SOURCE *sizeof(int));
-	source_amp = (double *)malloc(NUM_SOURCE *sizeof(double));
-	source_offset = (double *)malloc(NUM_SOURCE *sizeof(double));
-	source_freq = (double *)malloc(NUM_SOURCE *sizeof(double));
+
+
+
+
+
 
 	//set up a dummy problem: 1 source, boxlike design space and target
-	source_y[0] = NUMROWS/2;
-	source_x[0] = NUMCOLS/4;
-	source_amp[0] = 32000.0;
-	source_offset[0] = 0.0;
-	source_freq[0] = 7.0;
+
+	
+	
+	vector<int> sx;
+	vector<int> sy;
+	vector<double> samp;
+	vector<double> off;
+	vector<double> freq;
+
+	for(int i = -50; i < 50; ++i){
+		sx.push_back(NUMCOLS*3/8);
+		sy.push_back(NUMROWS/2 + i);
+		samp.push_back(320000);
+		off.push_back(i);
+		freq.push_back(7);
+	}
+	source_x = sx.data();
+	source_y = sy.data();
+	source_amp = samp.data();
+	source_offset = off.data();
+	source_freq = freq.data();
+
 	int t_ind = 0;
 	int d_ind = 0;
 	vector<int> tx;
@@ -292,11 +309,11 @@ void do_top_op(){
 	//update_density();
 	simulate_with_output();
 	free(design_grad);
-	free(source_x);
-	free(source_y);
-	free(source_amp);
-	free(source_offset);
-	free(source_freq);
+
+
+
+
+
 }
 int main()
 {
