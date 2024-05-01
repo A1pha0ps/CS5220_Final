@@ -249,9 +249,9 @@ void do_top_op(){
 	source_freq = (double *)malloc(NUM_SOURCE *sizeof(double));
 
 	//set up a dummy problem: 1 source, boxlike design space and target
-	source_x[0] = NUMROWS/2;
-	source_y[0] = NUMCOLS/4;
-	source_amp[0] = 16000.0;
+	source_y[0] = NUMROWS/2;
+	source_x[0] = NUMCOLS/4;
+	source_amp[0] = 32000.0;
 	source_offset[0] = 0.0;
 	source_freq[0] = 7.0;
 	int t_ind = 0;
