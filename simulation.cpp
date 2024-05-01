@@ -246,11 +246,11 @@ void do_top_op(){
 	vector<double> off;
 	vector<double> freq;
 
-	for(int i = -50; i < 50; ++i){
+	for(int i = -NUMCOLS/4; i < NUMCOLS/4; ++i){
 		sx.push_back(NUMCOLS*3/8);
 		sy.push_back(NUMROWS/2 + i);
 		samp.push_back(320000);
-		off.push_back(i);
+		off.push_back(0);
 		freq.push_back(7);
 	}
 	source_x = sx.data();
@@ -277,7 +277,7 @@ void do_top_op(){
 			else if(j < 3*NUMCOLS/4){	
 				ddx.push_back(j);
 				ddy.push_back(i);
-				ddden.push_back(0.5);
+				ddden.push_back(0.1);
 			}
 		}
 	}

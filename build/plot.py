@@ -31,7 +31,7 @@ N = 500 # number of timesteps
 E_x_t = np.array(data[-N:])
 
 fig, ax = plt.subplots(figsize = (5, 5))
-cax = ax.pcolormesh(np.arange(64), np.arange(64), E_x_t[0].T, 
+cax = ax.pcolormesh(np.arange(48), np.arange(48), E_x_t[0].T, 
                     vmin = np.min(E_x_t), vmax = np.max(E_x_t), 
                     shading = "auto", cmap = "bwr")
 plt.axis("equal")
