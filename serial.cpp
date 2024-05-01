@@ -288,9 +288,9 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
 
   // Sinusoidal Source
   // 20 GHz
-  // pulse = 10 * sin(2 * pi * 7 * 1e8 * delt * cur_step);
+  pulse = 1000 * sin(2 * pi * 7 * 1e8 * delx / 3e8 * cur_step);
 
-  pulse = 5 * exp(-.2 * (pow((t0 - cur_step) / spread, 2.0)));
+  // pulse = 5 * exp(-.2 * (pow((t0 - cur_step) / spread, 2.0)));
 
   ex(10, NUMCOLS / 2) = pulse;
 

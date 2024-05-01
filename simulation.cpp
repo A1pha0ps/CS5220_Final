@@ -49,7 +49,12 @@ void init_mat_properties(double *relative_eps, double *sigma)
   {
     for (int j = 0; j < NUMCOLS; j++)
     {
-      if (i > (NUMROWS / 4) && i < (3 * NUMROWS / 4))
+
+      bool cond1 = (i >= 100 && i <= 105 && j <= 50);
+      bool cond2 = (i >= 100 && i <= 105 && j >= 75 && j <= 125);
+      bool cond3 = (i >= 100 && i <= 105 && j >= 150);
+
+      if (cond1 || cond2 || cond3)
       {
         relative_eps(i, j) = 19.3;
         sigma(i, j) = 5.21;
@@ -128,19 +133,19 @@ int main()
 
     // fprintf(fp, "%d\n", step);
 
-    if (step % 5 == 0)
+    // if (step % 1 == 0)
+    // {
+    for (int i = 0; i < NUMROWS; i++)
     {
-      for (int i = 0; i < NUMROWS; i++)
+      for (int j = 0; j < NUMCOLS; j++)
       {
-        for (int j = 0; j < NUMCOLS; j++)
-        {
-          fprintf(fp, "%6.3f ", ex[i * NUMROWS + j]);
-        }
-        fprintf(fp, " \n");
+        fprintf(fp, "%6.3f ", ex[i * NUMROWS + j]);
       }
-
-      fprintf(fp, "\n");
+      fprintf(fp, " \n");
     }
+
+    fprintf(fp, "\n");
+    // }
   }
 
   fclose(fp);
