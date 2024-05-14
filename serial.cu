@@ -8,6 +8,8 @@ using namespace std;
 
 #include "common.h"
 
+extern int nsteps, NUMROWS, NUMCOLS;
+
 /*
 
   (row i, col j)
@@ -17,7 +19,7 @@ using namespace std;
 */
 double pulse;
 
-double start_time, end_time;
+// double start_time, end_time;
 double dtime;
 double etime;
 double hytime;
@@ -82,7 +84,7 @@ void init_tfsf()
 void init_simulation(double *dx, double *ex, double *hy, double *hz)
 {
 
-  start_time = omp_get_wtime();
+  // start_time = omp_get_wtime();
   // Idx = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
   // Ice_y = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
   // Ice_z = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
@@ -102,9 +104,9 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
 
   // init_abc();
 
-  end_time = omp_get_wtime();
+  // end_time = omp_get_wtime();
 
-  printf("Init Time: %f seconds\n", end_time - start_time);
+  // printf("Init Time: %f seconds\n", end_time - start_time);
 }
 
 void updateHFields(double *dx, double *ex, double *hy, double *hz, int cur_step)
@@ -275,7 +277,8 @@ void apply_abc(double *ex, double abc_c0, double abc_c1, double abc_c2,
 
 void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_step,
                         double *relative_eps, double *sigma, double abc_c0, double abc_c1, double abc_c2,
-                        double *dxL_abc, double *dxR_abc, double *dxT_abc, double *dxB_abc)
+                        double *dxL_abc, double *dxR_abc, double *dxT_abc,
+                        double *dxB_abc)
 {
   updateHFields(dx, ex, hy, hz, cur_step);
 
@@ -288,7 +291,7 @@ void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_
 
   // Sinusoidal Source
   // 20 GHz
-  pulse = 1000 * sin(2 * pi * 7 * 1e8 * delx / 3e8 * cur_step);
+  pulse = 10 * sin(2 * pi * 7 * 1e8 * delx / 3e8 * cur_step);
 
   // pulse = 5 * exp(-.2 * (pow((t0 - cur_step) / spread, 2.0)));
 
