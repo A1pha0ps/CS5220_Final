@@ -33,6 +33,11 @@ extern int NUMCOLS;
 #define IC (NUMROWS / 2)
 #define JC (NUMCOLS / 2)
 
+// cuda
+
+#define NUMTHREADS 256
+#define NUMBLKS 256
+
 void init_simulation(double *dx, double *ex, double *hy, double *hz);
 void apply_source(double *ex, int NUM_SOURCE, int step, int *s_x, int *s_y, double *s_amp, double *s_off, double *s_freq);
 void simulate_time_step(double *dx, double *ex, double *hy, double *hz,
