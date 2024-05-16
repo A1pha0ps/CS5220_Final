@@ -4,10 +4,8 @@ project(fdtd)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 
-
-
-
 find_package(MPI REQUIRED)
+find_package(OpenMP REQUIRED)
 
 # Group number
 set(GROUP_NO 00 CACHE STRING "Your group number (two digits)")
@@ -32,10 +30,7 @@ endif ()
 
 add_executable(serial simulation.cpp serial.cpp common.h)
 target_link_libraries(serial PRIVATE MPI::MPI_CXX)
-
-
-
-
+target_link_libraries(serial PRIVATE OpenMP::OpenMP_CXX)
 
 # Copy the job scripts
 configure_file(job-serial job-serial COPYONLY)
