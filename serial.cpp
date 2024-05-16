@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <mpi.h>
 #include <omp.h>
 
 #include <iostream>
@@ -42,6 +43,7 @@ double *hz_inc_c1, *hz_inc_c2, *ex_inc_c1, *ex_inc_c2;
 void reset_simulation(double *dx, double *ex, double *hy, double *hz)
 {
 
+#pragma omp for
   for (int i = 0; i < NUMROWS; i++)
   {
     for (int j = 0; j < NUMCOLS; j++)
@@ -53,24 +55,26 @@ void reset_simulation(double *dx, double *ex, double *hy, double *hz)
     }
   }
 }
-void reset_bounds(double * dxL_abc, double * dxR_abc, double * dxT_abc, double * dxB_abc){
+void reset_bounds(double *dxL_abc, double *dxR_abc, double *dxT_abc, double *dxB_abc)
+{
 
-	for (int i = 0; i < NUMROWS * 6; i++)
-	{
-		dxL_abc[i] = 0;
-		dxR_abc[i] = 0;
-	}
+  for (int i = 0; i < NUMROWS * 6; i++)
+  {
+    dxL_abc[i] = 0;
+    dxR_abc[i] = 0;
+  }
 
-	for (int i = 0; i < NUMCOLS * 6; i++)
-	{
-		dxT_abc[i] = 0;
-		dxB_abc[i] = 0;
-	}
+  for (int i = 0; i < NUMCOLS * 6; i++)
+  {
+    dxT_abc[i] = 0;
+    dxB_abc[i] = 0;
+  }
 }
 void updateHFields(double *dx, double *ex, double *hy, double *hz, int cur_step)
 {
-  // Update H-fields
-  // Calculate Hy
+// Update H-fields
+// Calculate Hy
+#pragma omp for
   for (int i = 0; i < NUMROWS; i++)
   {
     for (int j = 0; j < NUMCOLS - 1; j++)
@@ -81,6 +85,7 @@ void updateHFields(double *dx, double *ex, double *hy, double *hz, int cur_step)
   }
 
   // Calculate Hz
+#pragma omp for
   for (int i = 0; i < NUMROWS - 1; i++)
   {
     for (int j = 0; j < NUMCOLS; j++)
@@ -95,6 +100,7 @@ void updateEFields(double *dx, double *ex, double *hy, double *hz, int cur_step,
 {
   // calculate D field
 
+#pragma omp for
   for (int i = 1; i < NUMROWS; i++)
   {
     for (int j = 1; j < NUMCOLS; j++)
@@ -126,6 +132,7 @@ void updateEFields(double *dx, double *ex, double *hy, double *hz, int cur_step,
 void apply_abc(double *ex, double *dxL_abc, double *dxR_abc, double *dxT_abc, double *dxB_abc)
 {
 
+#pragma omp for
   for (int i = 0; i < NUMROWS; i++)
   {
     ex(0, i) = abc_c0 * (ex(2, i) + dxL_abc(0, 1, i)) +
@@ -140,6 +147,7 @@ void apply_abc(double *ex, double *dxL_abc, double *dxR_abc, double *dxT_abc, do
     }
   }
 
+#pragma omp for
   for (int i = 0; i < NUMROWS; i++)
   {
     ex(NUMCOLS - 1, i) = abc_c0 * (ex(NUMCOLS - 3, i) + dxR_abc(0, 1, i)) +
@@ -154,6 +162,7 @@ void apply_abc(double *ex, double *dxL_abc, double *dxR_abc, double *dxT_abc, do
     }
   }
 
+#pragma omp for
   for (int i = 0; i < NUMCOLS; i++)
   {
     ex(i, 0) = abc_c0 * (ex(i, 2) + dxB_abc(0, 1, i)) +
@@ -168,6 +177,7 @@ void apply_abc(double *ex, double *dxL_abc, double *dxR_abc, double *dxT_abc, do
     }
   }
 
+#pragma omp for
   for (int i = 0; i < NUMCOLS; i++)
   {
     ex(i, NUMROWS - 1) = abc_c0 * (ex(i, NUMROWS - 3) + dxT_abc(0, 1, i)) +
@@ -184,41 +194,44 @@ void apply_abc(double *ex, double *dxL_abc, double *dxR_abc, double *dxT_abc, do
 }
 
 void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_step,
-		double *relative_eps, double *sigma, double *dxL_abc, double *dxR_abc, double *dxT_abc,
-		double *dxB_abc,
-		int * s_x, int * s_y, double * s_amp, double * s_off, int * s_type, int s_count)
+                        double *relative_eps, double *sigma, double *dxL_abc, double *dxR_abc, double *dxT_abc,
+                        double *dxB_abc,
+                        int *s_x, int *s_y, double *s_amp, double *s_off, int *s_type, int s_count)
 {
-	updateHFields(dx, ex, hy, hz, cur_step);
+  updateHFields(dx, ex, hy, hz, cur_step);
 
-	// updateTfSf(dx, ex, hy, hz, cur_step);
+  // updateTfSf(dx, ex, hy, hz, cur_step);
 
-	updateEFields(dx, ex, hy, hz, cur_step, relative_eps, sigma);
+  updateEFields(dx, ex, hy, hz, cur_step, relative_eps, sigma);
 
-	//Apply loads
+  // Apply loads
 
-	for (int i = 0; i < s_count; ++i){
-		double pulse;
-		if(s_type[i] == 0){
-			//Sin pulse
-			pulse = s_amp[i] * sin(2 * pi * 7 * 1e8 * delx/3e8 * (cur_step*delt - s_off[i]));
-		}
-		else if(s_type[i] == 1){
-			//Gaussian pulse
-			pulse = s_amp[i] * exp(-.5 * (pow((t0 - (cur_step*delt - s_off[i])) / spread, 2.0)));
-		}
-		ex(s_x[i], s_y[i]) = pulse;
-	}
+#pragma omp for
+  for (int i = 0; i < s_count; ++i)
+  {
+    double pulse;
+    if (s_type[i] == 0)
+    {
+      // Sin pulse
+      pulse = s_amp[i] * sin(2 * pi * 7 * 1e8 * delx / 3e8 * (cur_step * delt - s_off[i]));
+    }
+    else if (s_type[i] == 1)
+    {
+      // Gaussian pulse
+      pulse = s_amp[i] * exp(-.5 * (pow((t0 - (cur_step * delt - s_off[i])) / spread, 2.0)));
+    }
+    ex(s_x[i], s_y[i]) = pulse;
+  }
 
+  apply_abc(ex, dxL_abc, dxR_abc, dxT_abc, dxB_abc);
 
-	apply_abc(ex, dxL_abc, dxR_abc, dxT_abc, dxB_abc);
+  // ex(NUMROWS / 2 - 30, NUMCOLS / 2) = pulse = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
 
-	// ex(NUMROWS / 2 - 30, NUMCOLS / 2) = pulse = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
-
-	// if (cur_step == nsteps - 1)
-	// {
-	//   printf("D-field time: %f seconds\n", dtime);
-	//   printf("E-field time: %f seconds\n", etime);
-	//   printf("Hy-field time: %f seconds\n", hytime);
-	//   printf("Hz-field time: %f seconds\n", hztime);
-	// }
+  // if (cur_step == nsteps - 1)
+  // {
+  //   printf("D-field time: %f seconds\n", dtime);
+  //   printf("E-field time: %f seconds\n", etime);
+  //   printf("Hy-field time: %f seconds\n", hytime);
+  //   printf("Hz-field time: %f seconds\n", hztime);
+  // }
 }

@@ -6,19 +6,27 @@
 #include <omp.h>
 #include <random>
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
 #include <cuda.h>
 using namespace std;
 
 #include "common.h"
-#define NUM_SOURCE NUMCOLS / 2
-#define NUM_TARGET (NUMROWS / 8) * (NUMCOLS / 8) * 2
-#define NUM_DESIGN (NUMROWS * 3 / 4) * (NUMCOLS / 4)
+
+
+
 #define MIN_DEN 0.001
-#define grad_w 0.0005
-#define OP_ITERS 20
-double abc_c0, abc_c1, abc_c2;
+#define grad_w 0.0001
+#define t_step_size 0.1
 
 // define design and target space
+
+
+int n_source;
+int n_targets;
+int n_design;
+int n_mats;
 
 int *target_x;
 int *target_y;
@@ -27,20 +35,21 @@ int *design_x;
 int *design_y;
 double *design_density;
 double *design_grad;
-double d_max;
+
 
 int *source_x;
 int *source_y;
 double *source_amp;
 double *source_offset;
-double *source_freq;
+int * source_type;
 
-// Silicon for Device
-double t_perm = 19.3;
-double t_cond = 5.21;
-// Copper for Shield
-double d_perm = 1.0;
-double d_cond = 5.8e7;
+int * mat_x;
+int * mat_y;
+double * mat_eps;
+double * mat_sig;
+
+double d_eps;
+double d_sig;
 
 // fundamental fields
 double *dx, *ex, *hy, *hz;
@@ -50,352 +59,395 @@ double *dxL_abc, *dxR_abc, *dxT_abc, *dxB_abc;
 
 // describes properties of grid material
 double *relative_eps, *sigma;
+double damage_max;
+int fdtd_steps, topop_steps, NUMROWS, NUMCOLS;
 
-int nsteps, NUMROWS, NUMCOLS;
-
-void init_abc()
-{
-  for (int i = 0; i < NUMROWS * 6; i++)
-  {
-    dxL_abc[i] = 0;
-    dxR_abc[i] = 0;
-  }
-
-  for (int i = 0; i < NUMCOLS * 6; i++)
-  {
-    dxT_abc[i] = 0;
-    dxB_abc[i] = 0;
-  }
-
-  double t0 = courant;
-  double t1 = 1.0 / t0 + 2.0 + t0;
-  abc_c0 = -(1.0 / t0 - 2.0 + t0) / t1;
-  abc_c1 = -2.0 * (t0 - 1.0 / t0) / t1;
-  abc_c2 = 4.0 * (t0 + 1.0 / t0) / t1;
+double mat_cost(){
+	double cost = 0.0;
+	for(int i = 0; i < n_design; ++i){
+		cost += design_density[i];
+	}
+	cost/=n_design;	
+	return cost * 0.1;
 }
-
 void init_mat_properties()
 {
-  /*
-     Code to specify properties of cell
+	// initialize free space
+	for (int i = 0; i < NUMROWS; i++)
+	{
+		for (int j = 0; j < NUMCOLS; j++)
+		{
+			relative_eps(i, j) = 1;
+			sigma(i, j) = 0;
+		}
+	}
+	cout << "Free space done " << endl;
+	//initialize materials other than design ps
+	for (int i = 0; i < n_mats; ++i)
+	{
 
-    Reference:
-    Material: Lossy Dielectric (Silicon @ 20 GHz)
-    Relative Permitivity: 19.3
-    Conductivity: 5.21 S/m
-   */
-  // initialize free space
-  for (int i = 0; i < NUMROWS; i++)
-  {
-    for (int j = 0; j < NUMCOLS; j++)
-    {
-      relative_eps(i, j) = 1;
-      sigma(i, j) = 0;
-    }
-  }
-
-  // initialize targets
-  // for (int i = 0; i < NUM_TARGET; ++i)
-  // {
-  //   relative_eps(target_x[i], target_y[i]) = t_perm;
-  //   sigma(target_x[i], target_y[i]) = t_cond;
-  // }
+		relative_eps(mat_x[i], mat_y[i]) = mat_eps[i];
+		sigma(mat_x[i], mat_y[i]) = mat_sig[i];
+	}
+	cout << "Custom materials done " << endl;
 }
 
 void update_d_mat()
 {
-  for (int i = 0; i < NUM_DESIGN; ++i)
-  {
-    relative_eps(design_x[i], design_y[i]) = design_density[i] * (d_perm - 1) + 1;
-    sigma(design_x[i], design_y[i]) = design_density[i] * d_cond;
-  }
+	//update material space with design params
+	for (int i = 0; i < n_design; ++i)
+	{
+		
+			cout << design_density[i] << " ";
+		
+		relative_eps(design_x[i], design_y[i]) = design_density[i] * (d_eps - 1) + 1;
+		sigma(design_x[i], design_y[i]) = design_density[i] * d_sig;
+	}
+	cout << endl;
 }
 
 void set_d_mat(int dof, double dens)
 {
-  relative_eps(design_x[dof], design_y[dof]) = dens * (d_perm - 1) + 1;
-  sigma(design_x[dof], design_y[dof]) = dens * d_cond;
+	//set a single design material square to some density
+	design_density[dof] = dens;
+	relative_eps(design_x[dof], design_y[dof]) = dens * (d_eps - 1) + 1;
+	sigma(design_x[dof], design_y[dof]) = dens * d_sig;
 }
 
-void free_all()
-{
-  free(dx);
-  free(ex);
-  free(hy);
-  free(hz);
-  free(dxL_abc);
-  free(dxR_abc);
-  free(dxT_abc);
-  free(dxB_abc);
-  free(relative_eps);
-  free(sigma);
-}
-
-void all_init()
-{
-  init_simulation(dx, ex, hy, hz);
-
-  init_abc();
-
-  init_mat_properties();
-}
 
 double simulate()
 {
-  init_simulation(dx, ex, hy, hz);
-  init_abc();
+	reset_simulation(dx, ex, hy, hz);
+	reset_bounds(dxL_abc, dxR_abc, dxT_abc, dxB_abc);
 
-  double damage = 0.0;
+	double damage = 0.0;
 
-  for (int step = 0; step < nsteps; step++)
-  {
-    // cout << step << endl;
-    simulate_time_step(dx, ex, hy, hz, step, relative_eps, sigma, abc_c0, abc_c1, abc_c2, dxL_abc, dxR_abc, dxT_abc, dxB_abc);
+	for (int step = 0; step < fdtd_steps; step++)
+	{
+		simulate_time_step(dx, ex, hy, hz, step, relative_eps, sigma, dxL_abc, dxR_abc, dxT_abc, dxB_abc, source_x, source_y, source_amp, source_offset, source_type, n_source);
 
-    for (int i = 0; i < NUM_TARGET; ++i)
-    {
-      damage += abs(ex(target_x[i], target_y[i])) / (nsteps * NUMCOLS * NUMROWS);
-    }
-  }
+		for (int i = 0; i < n_targets; ++i)
+		{
+			damage += pow(ex(target_x[i], target_y[i]),2)*delt*delx*delx;
+		}
+	}
 
-  return damage;
+	return damage;
 }
 
 void update_density()
 {
-  double sum = 0.0;
-  for (int d = 0; d < NUM_DESIGN; ++d)
-  {
-    cout << "Doing " << d << "/" << NUM_DESIGN << endl;
-    double old_val = design_density[d];
-    // we need to estimate the gradient of the damage - central difference with each design variable
-    set_d_mat(d, old_val - grad_w);
-    double back = simulate();
-    set_d_mat(d, old_val + grad_w);
-    double front = simulate();
-    design_grad[d] = (front - back) / (2 * grad_w);
-    sum += design_grad[d];
-    set_d_mat(d, old_val);
-  }
+	double sum = 0;
+	for (int d = 0; d < n_design; ++d)
+	{
 
-  // take a step backward
-  for (int d = 0; d < NUM_DESIGN; ++d)
-  {
-    design_density[d] += design_grad[d] / sum;
-    if (design_density[d] < MIN_DEN)
-    {
-      design_density[d] = MIN_DEN;
-    }
-    if (design_density[d] >= 1.0)
-    {
-      design_density[d] = 1.0;
-    }
-  }
-  update_d_mat();
+		double old_val = design_density[d];
+		// we need to estimate the gradient of the score - central difference with each design variable
+		set_d_mat(d, old_val - grad_w);
+		double back = simulate()/damage_max + mat_cost();
+		set_d_mat(d, old_val + grad_w);
+		double front = simulate()/damage_max + mat_cost();
+		
+		design_grad[d] = (front - back) / (2 * grad_w);
+		sum += design_grad[d] * design_grad[d];
+		//set it back
+		set_d_mat(d, old_val);
+	}
+
+	sum = sqrt(sum);
+	
+	// take a step backward, penalize, and cap
+	for (int d = 0; d < n_design; ++d)
+	{
+		design_density[d] -= t_step_size * design_grad[d]/sum;
+
+		if (design_density[d] < MIN_DEN)
+		{
+			design_density[d] = MIN_DEN;
+		}
+		if (design_density[d] >= 1.0)
+		{
+			design_density[d] = 1.0;
+		}
+	}
+	update_d_mat();
 }
 
-void simulate_with_output(FILE *fp)
-{
 
-  init_simulation(dx, ex, hy, hz);
-  init_abc();
+vector<int> sx;
+vector<int> sy;
+vector<double> s_amp;
+vector<int> s_type;
+vector<double> s_off;
 
-  for (int step = 0; step < nsteps; step++)
-  {
-    // cout << step << endl;
-    simulate_time_step(dx, ex, hy, hz, step, relative_eps, sigma, abc_c0, abc_c1, abc_c2, dxL_abc, dxR_abc, dxT_abc, dxB_abc);
-    /* Write the E field out to a file "Ez" */
+vector<int> mtx;
+vector<int> mty;
+vector<double> mEps;
+vector<double> mSig;
 
-    // fprintf(fp, "%d\n", step);
 
-    // if (step % 1 == 0)
-    // {
-    for (int i = 0; i < NUMROWS; i++)
-    {
-      for (int j = 0; j < NUMCOLS; j++)
-      {
-        fprintf(fp, "%6.3f ", ex[i * NUMROWS + j]);
-      }
-      fprintf(fp, " \n");
-    }
+vector<int> d_x;
+vector<int> d_y;
 
-    fprintf(fp, "\n");
-    // }
-  }
+vector<int> tx;
+vector<int> ty;
 
-  fclose(fp);
+void read_in_file(string f_name){
+
+	ifstream file(f_name);
+	string line;
+
+	getline(file, line);
+
+	//Read Field Size
+	stringstream lineStream;
+	lineStream.str(line);
+
+	lineStream >> NUMROWS;
+	lineStream >> NUMCOLS;
+	cout << "field size read: " << NUMROWS << " x " << NUMCOLS << endl;
+	//Read Time Steps, Top op steps
+	getline(file, line);
+	lineStream.clear();
+	lineStream.str(line);
+	lineStream >> fdtd_steps;
+	lineStream >> topop_steps;
+	cout << "step counts read: " << fdtd_steps << " fdtd, " << topop_steps << " topop" << endl;
+	//Read in Source Points
+	getline(file, line);
+	lineStream.clear();
+	lineStream.str(line);
+	lineStream >> n_source;
+	for(int i = 0; i < n_source; ++i){
+		getline(file, line);
+		lineStream.clear();
+		lineStream.str(line);
+		int x, y, type;
+		double amp, off;
+		lineStream >> x;
+		lineStream >> y;
+		lineStream >> amp;
+		lineStream >> type;
+		lineStream >> off;
+
+		sx.push_back(x);
+		sy.push_back(y);
+		s_amp.push_back(amp);
+		s_type.push_back(type);
+		s_off.push_back(off);	
+	}
+
+	cout << "source info read " << n_source << " sources" << endl;
+	//Read in Material Properties
+	getline(file, line);
+	lineStream.clear();
+	lineStream.str(line);
+	int mat_rects;
+	lineStream >> mat_rects;
+
+	for(int i = 0; i < mat_rects; ++i){
+		getline(file, line);
+		lineStream.clear();
+		lineStream.str(line);
+		int TL_X, TL_Y, L, W;
+		double eps;
+		double sig;
+		lineStream >> TL_X;
+		lineStream >> TL_Y;
+		lineStream >> L;
+		lineStream >> W;
+		lineStream >> eps;
+		lineStream >> sig;
+		for(int x = 0; x < L; ++x){
+			for(int y = 0; y < W; ++y){
+				mtx.push_back(TL_X + x);
+				mty.push_back(TL_Y + y);
+				mEps.push_back(eps);
+				mSig.push_back(sig);
+			}
+		}
+	}
+	n_mats = mtx.size();
+	cout << "material info read " << n_mats << " mats"  << endl;
+	//Read in targets
+	getline(file, line);
+	lineStream.clear();
+	lineStream.str(line);
+	int t_rects;
+	lineStream >> t_rects;
+
+	for(int i = 0; i < t_rects; ++i){
+		getline(file, line);
+		lineStream.clear();
+		lineStream.str(line);
+		int TLX, TLY, L, W;
+		lineStream >> TLX;
+		lineStream >> TLY;
+		lineStream >> L;
+		lineStream >> W;
+		for(int x = 0; x < L; ++x){
+			for(int y = 0; y < W; ++y){
+				tx.push_back(TLX + x);
+				ty.push_back(TLY + y);
+			}
+		}
+	}
+	n_targets = tx.size();
+	cout << "target info read " << n_targets <<" targets" << endl;
+	//Read in design parameter information
+	getline(file, line);
+	lineStream.clear();
+	lineStream.str(line);
+	int dp_rects;
+	lineStream >> dp_rects;
+	lineStream >> d_eps;
+	lineStream >> d_sig;
+	for(int i  = 0; i < dp_rects; ++i){
+		getline(file, line);
+		lineStream.clear();
+		lineStream.str(line);
+		int TLX, TLY, L, W;
+		lineStream >> TLX;
+		lineStream >> TLY;
+		lineStream >> L;
+		lineStream >> W;
+		for(int x = 0; x < L; ++x){
+			for(int y = 0; y < W; ++y){
+				d_x.push_back(x + TLX);
+				d_y.push_back(y + TLY);
+			}
+		}
+	}
+
+	n_design = d_x.size();
+	cout << "design params done " << n_design << " params" << endl;
+	//allocate necessary pointers
+
+	dx = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
+	ex = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
+	hy = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
+	hz = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
+
+	relative_eps = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
+	sigma = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
+
+	dxL_abc = (double *)malloc(NUMROWS * 6 * sizeof(double));
+	dxR_abc = (double *)malloc(NUMROWS * 6 * sizeof(double));
+	dxT_abc = (double *)malloc(NUMCOLS * 6 * sizeof(double));
+	dxB_abc = (double *)malloc(NUMCOLS * 6 * sizeof(double));
+
+
+	design_grad = (double *)malloc(n_design * sizeof(double));
+	design_density = (double *) malloc(n_design * sizeof(double));
+	for(int i = 0; i < n_design; ++i){
+		design_density[i] = 0.5;
+	}
+
+	target_x = tx.data();
+	target_y = ty.data();
+
+	design_x = d_x.data();
+	design_y = d_y.data();
+
+
+
+
+	source_x = sx.data();
+	source_y = sy.data();
+	source_amp = s_amp.data();
+	source_offset = s_off.data();
+	source_type = s_type.data();
+
+	mat_x = mtx.data();
+	mat_y = mty.data();
+	mat_eps = mEps.data();
+	mat_sig = mSig.data();
+
+
+
+	cout << "storing done" << endl;
 }
 
 void do_top_op()
 {
-  design_grad = (double *)malloc(NUM_DESIGN * sizeof(double));
-  // set up a dummy problem: 1 source, boxlike design space and target
 
-  vector<int> sx;
-  vector<int> sy;
-  vector<double> samp;
-  vector<double> off;
-  vector<double> freq;
+	cout << "starting topop: " << topop_steps << " total steps " << endl;
+	init_mat_properties();
+	cout << "initial materials set" << endl;
+	update_d_mat();
+	damage_max = simulate();
+	for (int i = 0; i < topop_steps; ++i)
+	{
+		cout << "step " << i << "/" << topop_steps << " finished" << endl;
+		update_density();
+	}
+}
+void do_top_op_full_out(){
+	ofstream damage_file("damage.out");
+	ofstream score_file("score.out");
+	ofstream cond_file("cond.out");
+	ofstream perm_file("perm.out");
 
-  for (int i = -NUMCOLS / 4; i < NUMCOLS / 4; ++i)
-  {
-    sx.push_back(NUMCOLS * 1 / 8);
-    sy.push_back(NUMROWS / 2 + i);
-    samp.push_back(320000);
-    off.push_back(0);
-    freq.push_back(7);
-  }
-  source_x = sx.data();
-  source_y = sy.data();
-  source_amp = samp.data();
-  source_offset = off.data();
-  source_freq = freq.data();
+	cout << "starting topop: " << topop_steps << " total steps " << endl;
+	init_mat_properties();
+	cout << "initial materials set" << endl;
 
-  int t_ind = 0;
-  int d_ind = 0;
-  vector<int> tx;
-  vector<int> ty;
-  vector<int> ddx;
-  vector<int> ddy;
-  vector<double> ddden;
-  for (int i = NUMROWS / 8; i < NUMROWS / 4; ++i)
-  {
-    for (int j = NUMCOLS * 3 / 4; j < 7 * NUMCOLS / 8; ++j)
-    {
-      tx.push_back(j);
-      ty.push_back(i);
-    }
-  }
+	update_d_mat();
+	damage_max = simulate();
+	damage_file << simulate()/damage_max << endl;
+	score_file << simulate()/damage_max + mat_cost()<<endl;
+	for(int i = 0; i < NUMROWS; ++i){
+		for(int j = 0; j < NUMCOLS; ++j){
+			cond_file << sigma(i, j) << " ";
+			perm_file << relative_eps(i, j) << " ";
+		}
+		perm_file << endl;
+		cond_file << endl;
+	}
+	for (int i = 0; i < topop_steps; ++i)
+	{
+		cout << "step " << i << "/" << topop_steps << " finished" << endl;
+		update_density();
+		damage_file << simulate()/damage_max << endl;
+		score_file << simulate()/damage_max + mat_cost()<<endl;
+		for(int i = 0; i < NUMROWS; ++i){
+			for(int j = 0; j < NUMCOLS; ++ j){
+				cond_file << sigma(i, j) << " ";
+				perm_file << relative_eps(i, j) << " ";
+			}
+			perm_file << endl;
+			cond_file << endl;
+		}
 
-  for (int i = 3 * NUMROWS / 4; i < 7 * NUMROWS / 8; ++i)
-  {
-    for (int j = NUMCOLS * 3 / 4; j < 7 * NUMCOLS / 8; ++j)
-    {
-      tx.push_back(j);
-      ty.push_back(i);
-    }
-  }
-
-  for (int i = NUMROWS / 8; i < NUMROWS * 7 / 8; ++i)
-  {
-    for (int j = 3 * NUMCOLS / 8; j < 5 * NUMCOLS / 8; ++j)
-    {
-      ddx.push_back(j);
-      ddy.push_back(i);
-      ddden.push_back(0.1);
-    }
-  }
-
-  //	for(int i = 0; i < OP_ITERS; ++i){
-  //		update_density();
-  //	}
-
-  target_x = tx.data();
-  target_y = ty.data();
-
-  design_x = ddx.data();
-  design_y = ddy.data();
-  design_density = ddden.data();
-  init_mat_properties();
-  FILE *DATA;
-  DATA = fopen("ML_DATA.txt", "w");
-  random_device rd;
-  mt19937 gen(rd());
-  uniform_real_distribution<double> dis(0.1, 1.0);
-
-  for (int i = 0; i < 6000; ++i)
-  {
-    cout << i << endl;
-    // populate design density with random stuff
-    for (int d = 0; d < NUM_DESIGN; ++d)
-    {
-      design_density[d] = dis(gen);
-      fprintf(DATA, "%.10f,", design_density[d]);
-    }
-    update_d_mat();
-    fprintf(DATA, "%.10f\n", simulate());
-  }
-  fclose(DATA);
-
-  FILE *F_DAMAGE;
-  F_DAMAGE = fopen("damage_plot", "w");
-  FILE *FPB;
-  FPB = fopen("e_field_before.txt", "w");
-  FILE *FPA;
-  FPA = fopen("e_field_after.txt", "w");
-  update_d_mat();
-  simulate_with_output(FPB);
-  fprintf(F_DAMAGE, "%6.3f\n", simulate());
-  FILE *fp;
-  fp = fopen("conductance.txt", "w");
-  for (int i = 0; i < 30; ++i)
-  {
-    update_density();
-    fprintf(F_DAMAGE, "%6.3f\n", simulate());
-
-    for (int i = 0; i < NUMCOLS; ++i)
-    {
-      for (int j = 0; j < NUMROWS; ++j)
-      {
-        if (i < 3 * NUMCOLS / 4 && i >= NUMCOLS / 2)
-        {
-          fprintf(fp, "%6.3f ", sigma[i * NUMROWS + j] / d_cond);
-        }
-        else
-        {
-          fprintf(fp, "%6.3f ", 0.0);
-        }
-      }
-      fprintf(fp, "\n");
-    }
-    fprintf(fp, "\n");
-  }
-  fclose(fp);
-  fclose(F_DAMAGE);
-  simulate_with_output(FPA);
-  free(design_grad);
+	}
+	damage_file.close();
+	perm_file.close();
+	cond_file.close();
+	score_file.close();
 }
 
-int main(int argc, char **argv)
+int main(int argc, char *argv [])
 {
+	cout << "Start " << endl;
+	int output = 0;
+	string file_name;
+	if(argc == 3){
+		output = stoi(argv[1]);	
+		file_name = argv[2];
+	}
+	else if(argc == 2){
+		file_name = argv[1];
+	}
+	cout << "Got file name " << file_name << endl;
+	read_in_file(file_name);
+	cout << d_eps << " " << d_sig << endl;
+	if(output == 0){
+		do_top_op();
+	}
+	else{
+		do_top_op_full_out();
+	}
 
-  if (argc != 3)
-  {
-    cout << "Wrong number of arguments provided: ./serial <NUM_TIME_STEPS> <SIDE_LENGTH_OF_GRID>" << endl;
-    return 0;
-  }
 
-  nsteps = stoi(argv[1]);
-  NUMROWS = stoi(argv[2]);
-  NUMCOLS = stoi(argv[2]);
-
-  // double *ix;
-
-  dx = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-  ex = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-  hy = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-  hz = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-
-  // ix = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-
-  relative_eps = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-  sigma = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-
-  dxL_abc = (double *)malloc(NUMROWS * 6 * sizeof(double));
-  dxR_abc = (double *)malloc(NUMROWS * 6 * sizeof(double));
-  dxT_abc = (double *)malloc(NUMCOLS * 6 * sizeof(double));
-  dxB_abc = (double *)malloc(NUMCOLS * 6 * sizeof(double));
-
-  // do_top_op();
-
-  all_init();
-
-  FILE *fp;
-
-  fp = fopen("ex_field.txt", "w");
-
-  simulate_with_output(fp);
-  free_all();
-
-  return 0;
+	return 0;
 }

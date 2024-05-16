@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.14)
 project(fdtd)
-enable_language(CUDA)
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 
+find_package(MPI REQUIRED)
 find_package(OpenMP REQUIRED)
 
 # Group number
@@ -27,12 +28,9 @@ if (NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
             "module swap ${Prg-${CMAKE_C_COMPILER_ID}} PrgEnv-gnu")
 endif ()
 
-add_executable(serial simulation.cu serial.cu common.h)
+add_executable(serial simulation.cpp serial.cpp common.h)
+target_link_libraries(serial PRIVATE MPI::MPI_CXX)
 target_link_libraries(serial PRIVATE OpenMP::OpenMP_CXX)
-target_compile_features(serial PRIVATE cxx_std_11)
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_60")
-
-
 
 # Copy the job scripts
 configure_file(job-serial job-serial COPYONLY)
