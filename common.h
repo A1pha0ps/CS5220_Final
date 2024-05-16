@@ -1,4 +1,5 @@
-extern int nsteps;
+extern int fdtd_steps;
+extern int topop_steps;
 extern int NUMROWS;
 extern int NUMCOLS;
 
@@ -11,6 +12,14 @@ extern int NUMCOLS;
 #define imp0 377.0
 
 #define courant (sqrt(2) / 2)
+#define t_1 1.0/courant + 2.0 + courant
+
+
+
+#define	abc_c0 -(1.0 / courant - 2.0 + courant) / t_1
+#define	abc_c1 -2.0 * (courant - 1.0 / courant) / t_1
+#define	abc_c2 4.0 * (courant + 1.0 / courant) / t_1
+
 #define abs(x) x < 0 ? -x : x
 
 #define dx(i, j) dx[(i) * NUMROWS + (j)]
@@ -33,7 +42,12 @@ extern int NUMCOLS;
 #define IC (NUMROWS / 2)
 #define JC (NUMCOLS / 2)
 
-void init_simulation(double *dx, double *ex, double *hy, double *hz);
-void apply_source(double *ex, int NUM_SOURCE, int step, int *s_x, int *s_y, double *s_amp, double *s_off, double *s_freq);
-void simulate_time_step(double *dx, double *ex, double *hy, double *hz,
-                        int cur_step, double *relative_eps, double *sigma, double abc_c0, double abc_c1, double abc_c2, double *dxL, double *dxR, double *dxT, double *dxB);
+void reset_simulation(double *dx, double *ex, double *hy, double *hz);
+void reset_bounds(double * dxL_abc, double * dxR_abc, double * dxT_ab, double * dxB_abc);
+
+
+void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_step,
+		double *relative_eps, double *sigma, double *dxL_abc, double *dxR_abc, double *dxT_abc,
+		double *dxB_abc,
+		int * s_x, int * s_y, double * s_amp, double * s_off, int * s_type, int s_count);
+

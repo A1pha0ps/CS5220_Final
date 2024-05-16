@@ -39,55 +39,8 @@ double *ex_incident;
 double *hz_incident;
 double *hz_inc_c1, *hz_inc_c2, *ex_inc_c1, *ex_inc_c2;
 
-void init_tfsf()
+void reset_simulation(double *dx, double *ex, double *hy, double *hz)
 {
-  ex_incident = (double *)malloc(NUMCOLS * sizeof(double));
-  hz_incident = (double *)malloc(NUMCOLS * sizeof(double));
-  hz_inc_c1 = (double *)malloc(NUMCOLS * sizeof(double));
-  hz_inc_c2 = (double *)malloc(NUMCOLS * sizeof(double));
-  ex_inc_c1 = (double *)malloc(NUMCOLS * sizeof(double));
-  ex_inc_c2 = (double *)malloc(NUMCOLS * sizeof(double));
-
-  for (int i = 0; i < NUMCOLS; i++)
-  {
-    ex_incident[i] = 0.0;
-    hz_incident[i] = 0.0;
-    hz_inc_c1[i] = 0.0;
-    hz_inc_c2[i] = 0.0;
-    ex_inc_c1[i] = 0.0;
-    ex_inc_c2[i] = 0.0;
-  }
-
-  for (int i = 0; i < NUMCOLS; i++)
-  {
-    if (i < NUMCOLS - NLOSSY1D - 1)
-    {
-      hz_inc_c1[i] = 1.0;
-      hz_inc_c2[i] = courant / imp0;
-      ex_inc_c1[i] = 1.0;
-      ex_inc_c2[i] = courant * imp0;
-    }
-    else
-    {
-      double temp = i - (NUMCOLS - 1 - NLOSSY1D) + 0.5;
-      double lossFactor = MAXLOSS * pow(temp / NLOSSY1D, 2);
-      ex_inc_c1[i] = (1.0 - lossFactor) / (1.0 + lossFactor);
-      ex_inc_c2[i] = courant * imp0 / (1.0 + lossFactor);
-      temp += 0.5;
-      lossFactor = MAXLOSS * pow(temp / NLOSSY1D, 2);
-      hz_inc_c1[i] = (1.0 - lossFactor) / (1.0 + lossFactor);
-      hz_inc_c2[i] = courant / imp0 / (1.0 + lossFactor);
-    }
-  }
-}
-
-void init_simulation(double *dx, double *ex, double *hy, double *hz)
-{
-
-  // start_time = omp_get_wtime();
-  // Idx = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-  // Ice_y = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
-  // Ice_z = (double *)malloc(NUMROWS * NUMCOLS * sizeof(double));
 
   for (int i = 0; i < NUMROWS; i++)
   {
@@ -99,16 +52,21 @@ void init_simulation(double *dx, double *ex, double *hy, double *hz)
       hz(i, j) = 0.0;
     }
   }
-
-  // init_tfsf();
-
-  // init_abc();
-
-  // end_time = omp_get_wtime();
-
-  // printf("Init Time: %f seconds\n", end_time - start_time);
 }
+void reset_bounds(double * dxL_abc, double * dxR_abc, double * dxT_abc, double * dxB_abc){
 
+	for (int i = 0; i < NUMROWS * 6; i++)
+	{
+		dxL_abc[i] = 0;
+		dxR_abc[i] = 0;
+	}
+
+	for (int i = 0; i < NUMCOLS * 6; i++)
+	{
+		dxT_abc[i] = 0;
+		dxB_abc[i] = 0;
+	}
+}
 void updateHFields(double *dx, double *ex, double *hy, double *hz, int cur_step)
 {
   // Update H-fields
@@ -165,57 +123,7 @@ void updateEFields(double *dx, double *ex, double *hy, double *hz, int cur_step,
   // }
 }
 
-void updateTfSf(double *dx, double *ex, double *hy, double *hz, int cur_step)
-{
-
-  // update Hz left and right
-  for (int i = ca; i <= cb; i++)
-  {
-    hz(ra - 1, i) -= courant / imp0 * ex_incident[ra];
-    hz(rb, i) += courant / imp0 * ex_incident[rb];
-  }
-
-  // update Hy
-  for (int i = ra; i <= rb; i++)
-  {
-    hy(i, ca - 1) += courant / imp0 * ex_incident[i];
-    hy(i, cb) -= courant / imp0 * ex_incident[i];
-  }
-
-  // update hz incident
-  for (int i = 0; i < NUMCOLS - 1; i++)
-  {
-    hz_incident[i] = hz_inc_c1[i] * hz_incident[i] + hz_inc_c2[i] * (ex_incident[i + 1] - ex_incident[i]);
-  }
-
-  // update ex incident
-  for (int i = 1; i < NUMCOLS; i++)
-  {
-    ex_incident[i] = ex_inc_c1[i] * ex_incident[i] + ex_inc_c2[i] * (hz_incident[i] - hz_incident[i - 1]);
-  }
-
-  // set source node
-
-  // Gaussian Pulse
-  // pulse = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
-
-  // Sinusoidal Source
-  // 20 GHz
-  // pulse = 10 * sin(2 * pi * 7 * 1e8 * delt * cur_step);
-
-  // dx(IC - 20, JC) += pulse;
-
-  ex_incident[0] = 50000 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
-
-  for (int i = ca; i <= cb; i++)
-  {
-    dx(ra, i) -= courant * imp0 * hz_incident[ra - 1];
-    dx(rb, i) += courant * imp0 * hz_incident[rb];
-  }
-}
-
-void apply_abc(double *ex, double abc_c0, double abc_c1, double abc_c2,
-               double *dxL_abc, double *dxR_abc, double *dxT_abc, double *dxB_abc)
+void apply_abc(double *ex, double *dxL_abc, double *dxR_abc, double *dxT_abc, double *dxB_abc)
 {
 
   for (int i = 0; i < NUMROWS; i++)
@@ -276,38 +184,41 @@ void apply_abc(double *ex, double abc_c0, double abc_c1, double abc_c2,
 }
 
 void simulate_time_step(double *dx, double *ex, double *hy, double *hz, int cur_step,
-                        double *relative_eps, double *sigma, double abc_c0, double abc_c1, double abc_c2,
-                        double *dxL_abc, double *dxR_abc, double *dxT_abc,
-                        double *dxB_abc)
+		double *relative_eps, double *sigma, double *dxL_abc, double *dxR_abc, double *dxT_abc,
+		double *dxB_abc,
+		int * s_x, int * s_y, double * s_amp, double * s_off, int * s_type, int s_count)
 {
-  updateHFields(dx, ex, hy, hz, cur_step);
+	updateHFields(dx, ex, hy, hz, cur_step);
 
-  // updateTfSf(dx, ex, hy, hz, cur_step);
+	// updateTfSf(dx, ex, hy, hz, cur_step);
 
-  updateEFields(dx, ex, hy, hz, cur_step, relative_eps, sigma);
+	updateEFields(dx, ex, hy, hz, cur_step, relative_eps, sigma);
 
-  // Gaussian Pulse
-  // pulse = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
+	//Apply loads
 
-  // Sinusoidal Source
-  // 20 GHz
-  pulse = 10 * sin(2 * pi * 7 * 1e8 * delx / 3e8 * cur_step);
+	for (int i = 0; i < s_count; ++i){
+		double pulse;
+		if(s_type[i] == 0){
+			//Sin pulse
+			pulse = s_amp[i] * sin(2 * pi * 7 * 1e8 * delx/3e8 * (cur_step*delt - s_off[i]));
+		}
+		else if(s_type[i] == 1){
+			//Gaussian pulse
+			pulse = s_amp[i] * exp(-.5 * (pow((t0 - (cur_step*delt - s_off[i])) / spread, 2.0)));
+		}
+		ex(s_x[i], s_y[i]) = pulse;
+	}
 
-  // pulse = 5 * exp(-.2 * (pow((t0 - cur_step) / spread, 2.0)));
 
-  ex(10, NUMCOLS / 2) = pulse;
+	apply_abc(ex, dxL_abc, dxR_abc, dxT_abc, dxB_abc);
 
-  // ex(NUMROWS / 2 + 40, NUMCOLS / 2) = pulse;
+	// ex(NUMROWS / 2 - 30, NUMCOLS / 2) = pulse = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
 
-  apply_abc(ex, abc_c0, abc_c1, abc_c2, dxL_abc, dxR_abc, dxT_abc, dxB_abc);
-
-  // ex(NUMROWS / 2 - 30, NUMCOLS / 2) = pulse = 5 * exp(-.5 * (pow((t0 - cur_step) / spread, 2.0)));
-
-  // if (cur_step == nsteps - 1)
-  // {
-  //   printf("D-field time: %f seconds\n", dtime);
-  //   printf("E-field time: %f seconds\n", etime);
-  //   printf("Hy-field time: %f seconds\n", hytime);
-  //   printf("Hz-field time: %f seconds\n", hztime);
-  // }
+	// if (cur_step == nsteps - 1)
+	// {
+	//   printf("D-field time: %f seconds\n", dtime);
+	//   printf("E-field time: %f seconds\n", etime);
+	//   printf("Hy-field time: %f seconds\n", hytime);
+	//   printf("Hz-field time: %f seconds\n", hztime);
+	// }
 }
